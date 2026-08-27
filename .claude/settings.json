@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/User/Downloads/**)",
+      "Bash(python3 -)",
+      "Bash(git status *)"
+    ]
+  }
+}

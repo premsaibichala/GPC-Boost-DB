@@ -55,25 +55,31 @@ BEGIN
 	-- Step 6: Safeguard — only run the sync if it's after 05:30 Sydney
     -- AND all reference data is present for BOTH countries. This prevents
     -- a missing/half-loaded source table from deactivating everything.
-    
+    -- The isActive checks are scoped to startDate <= CURRENT_DATE so a sku
+    -- whose only row is future-dated (see the future-price ingestion changes
+    -- in sp_inbound_independent.sql / sp_price_product_rules_upsert.sql)
+    -- isn't mistaken for today's reference data being present.
     BEGIN
-    
-    IF (CURRENT_TIMESTAMP AT TIME ZONE 'Australia/Sydney')::time < TIME '05:30:00' THEN
-        RAISE NOTICE 'Step 6 skipped: before 05:30 Sydney';
+        IF (CURRENT_TIMESTAMP AT TIME ZONE 'Australia/Sydney')::time < TIME '05:30:00' THEN
+            RAISE NOTICE 'Step 6 skipped: before 05:30 Sydney';
 
-    ELSIF EXISTS (SELECT 1 FROM "tProducts" WHERE "country" = 'AU' AND "isActive")
-       AND EXISTS (SELECT 1 FROM "tProducts" WHERE "country" = 'NZ' AND "isActive")
-       AND EXISTS (SELECT 1 FROM "tPriceProductRules" WHERE "country" = 'AU' AND "isActive")
-       AND EXISTS (SELECT 1 FROM "tPriceProductRules" WHERE "country" = 'NZ' AND "isActive")
-       AND EXISTS (SELECT 1 FROM "tPriceListDetail" WHERE "country" = 'AU' AND "isActive")
-       AND EXISTS (SELECT 1 FROM "tPriceListDetail" WHERE "country" = 'NZ' AND "isActive")
-    THEN
-        CALL public.sp_update_offer_and_sku_details();
-        RAISE NOTICE 'Step 6 completed';
+        ELSIF EXISTS (SELECT 1 FROM "tProducts" WHERE "country" = 'AU' AND "isActive")
+           AND EXISTS (SELECT 1 FROM "tProducts" WHERE "country" = 'NZ' AND "isActive")
+           AND EXISTS (SELECT 1 FROM "tPriceProductRules" WHERE "country" = 'AU' AND "isActive" AND "startDate" <= CURRENT_DATE)
+           AND EXISTS (SELECT 1 FROM "tPriceProductRules" WHERE "country" = 'NZ' AND "isActive" AND "startDate" <= CURRENT_DATE)
+           AND EXISTS (SELECT 1 FROM "tPriceListDetail" WHERE "country" = 'AU' AND "isActive" AND "startDate" <= CURRENT_DATE)
+           AND EXISTS (SELECT 1 FROM "tPriceListDetail" WHERE "country" = 'NZ' AND "isActive" AND "startDate" <= CURRENT_DATE)
+        THEN
+            CALL public.sp_update_offer_and_sku_details();
+            RAISE NOTICE 'Step 6 completed';
 
-    ELSE
-        RAISE NOTICE 'Step 6 skipped: reference data missing';
-    END IF;
+        ELSE
+            RAISE NOTICE 'Step 6 skipped: reference data missing';
+        END IF;
+    EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING 'Step 6 FAILED: %', SQLERRM;
+        RAISE EXCEPTION 'Aborting: Rolling back entire batch';
+    END;
 
     RAISE NOTICE 'All steps completed successfully.';
 

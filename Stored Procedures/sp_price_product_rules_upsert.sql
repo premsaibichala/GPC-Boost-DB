@@ -32,41 +32,50 @@ AS $BODY$
       CREATE INDEX IF NOT EXISTS idx_temp_lookup
       ON public."tPriceProductRules_temp" (sku, "endDate");
 
-      -- 2: Identify dated (non-infinity) records and select oldest endDate per key
+      -- 2: Identify dated (non-infinity) records and select oldest endDate per
+      --    key, SEPARATELY for the currently-effective window (startDate <=
+      --    today) and the future window (startDate > today), so a supplier's
+      --    current price and its already-known future price change don't
+      --    collapse into a single row.
       DROP TABLE IF EXISTS temp_dated_records;
       CREATE TEMP TABLE temp_dated_records AS
-      SELECT DISTINCT ON ("supplierId", sku, company, country)
+      SELECT DISTINCT ON ("supplierId", sku, company, country, ("startDate" > CURRENT_DATE))
           country, "supplierId", sku, company, "startDate", "endDate",
           "priceClass1", "priceClass2", "basePrice",
           "pricePoint1", "pricePoint2", "pricePoint3", "pricePoint4", "pricePoint5", "pricePoint6"
       FROM public."tPriceProductRules_temp"
       WHERE LOWER(TRIM("endDate"::text)) != 'infinity'
-      ORDER BY "supplierId", sku, company, country, "endDate" ASC;
+      ORDER BY "supplierId", sku, company, country, ("startDate" > CURRENT_DATE),
+               CASE WHEN "startDate" > CURRENT_DATE THEN "startDate" END ASC,
+               "endDate" ASC;
 
       CREATE INDEX idx_temp_dated_sku ON temp_dated_records (sku);
       CREATE INDEX idx_temp_dated_join ON temp_dated_records (country, company, sku);
       CREATE INDEX idx_temp_dated_profile ON temp_dated_records (country, company, "priceClass1", "priceClass2");
       ANALYZE temp_dated_records;
 
-      RAISE INFO 'Dated records (earliest non-infinity endDate per key): % rows at %', (SELECT COUNT(*) FROM temp_dated_records), NOW();
+      RAISE INFO 'Dated records (earliest non-infinity endDate per key, current+future): % rows at %', (SELECT COUNT(*) FROM temp_dated_records), NOW();
 
-      -- 3: Identify infinity records - keep one per key
+      -- 3: Identify infinity records - keep one per key, per window (current/future)
       DROP TABLE IF EXISTS temp_infinity_records;
       CREATE TEMP TABLE temp_infinity_records AS
-      SELECT DISTINCT ON ("supplierId", sku, company, country)
+      SELECT DISTINCT ON ("supplierId", sku, company, country, ("startDate" > CURRENT_DATE))
           country, "supplierId", sku, company, "startDate", "endDate",
           "priceClass1", "priceClass2", "basePrice",
           "pricePoint1", "pricePoint2", "pricePoint3", "pricePoint4", "pricePoint5", "pricePoint6"
       FROM public."tPriceProductRules_temp"
       WHERE LOWER(TRIM("endDate"::text)) = 'infinity'
-      ORDER BY "supplierId", sku, company, country;
+      ORDER BY "supplierId", sku, company, country, ("startDate" > CURRENT_DATE),
+               CASE WHEN "startDate" > CURRENT_DATE THEN "startDate" END ASC;
 
       CREATE INDEX idx_temp_infinity_sku ON temp_infinity_records (sku);
       ANALYZE temp_infinity_records;
 
-      RAISE INFO 'Infinity records identified (one per key): % rows at %', (SELECT COUNT(*) FROM temp_infinity_records), NOW();
+      RAISE INFO 'Infinity records identified (one per key per window): % rows at %', (SELECT COUNT(*) FROM temp_infinity_records), NOW();
 
-      -- 4: Determine which records to process
+      -- 4: Determine which records to process. Within each window
+      -- (current/future), prefer the dated record over the infinity record
+      -- for the same key, exactly as before.
       DROP TABLE IF EXISTS temp_records_to_process;
       CREATE TEMP TABLE temp_records_to_process AS
       SELECT * FROM temp_dated_records
@@ -79,6 +88,7 @@ AS $BODY$
             AND dr.country      = ir.country
             AND dr."supplierId" = ir."supplierId"
             AND dr.sku          = ir.sku
+            AND (dr."startDate" > CURRENT_DATE) = (ir."startDate" > CURRENT_DATE)
       );
 
       CREATE INDEX idx_temp_process_sku ON temp_records_to_process (sku);
@@ -88,7 +98,10 @@ AS $BODY$
 
       RAISE INFO 'Records to process: % rows at %', (SELECT COUNT(*) FROM temp_records_to_process), NOW();
 
-      -- CHANGE: Mark records as inactive if they're not in today's data
+      -- CHANGE: Mark records as inactive if they're not matched by today's
+      -- data WITHIN THEIR OWN WINDOW (current row needs a current-window
+      -- match, future row needs a future-window match), so an already
+      -- ingested future row isn't retired before its startDate arrives.
       UPDATE public."tPriceProductRules"
       SET "isActive" = FALSE,
           "updatedAt" = NOW()
@@ -100,6 +113,8 @@ AS $BODY$
               AND t."supplierId" = "tPriceProductRules"."supplierId"
               AND t.country = "tPriceProductRules".country
               AND t.sku = "tPriceProductRules".sku
+			  AND t."startDate" = "tPriceProductRules"."startDate"
+              AND (t."startDate" > CURRENT_DATE) = ("tPriceProductRules"."startDate" > CURRENT_DATE)
         );
 
       -- CHANGE: Get count of records marked as inactive
@@ -116,6 +131,7 @@ AS $BODY$
               AND d.country      = t.country
               AND d."supplierId" = t."supplierId"
               AND d.sku          = t.sku
+              AND (d."startDate" > CURRENT_DATE) = (t."startDate" > CURRENT_DATE)
         );
 
       GET DIAGNOSTICS v_deleted_infinity = ROW_COUNT;
@@ -432,13 +448,15 @@ AS $BODY$
 
       ANALYZE temp_final_data;
 
-      -- Deduplicate final data to prevent ON CONFLICT errors
+      -- Deduplicate final data to prevent ON CONFLICT errors. "startDate" is
+      -- part of the key so the current-window and future-window row for the
+      -- same (company, country, supplierId, sku) both survive.
       DROP TABLE IF EXISTS temp_final_data_dedup;
       CREATE TEMP TABLE temp_final_data_dedup AS
-      SELECT DISTINCT ON (company, country, "supplierId", sku)
+      SELECT DISTINCT ON (company, country, "supplierId", sku, "startDate")
           *
       FROM temp_final_data
-      ORDER BY company, country, "supplierId", sku, "endDate" ASC;
+      ORDER BY company, country, "supplierId", sku, "startDate", "endDate" ASC;
       ANALYZE temp_final_data_dedup;
 
       SELECT COUNT(*) INTO v_final_data_count FROM temp_final_data_dedup;
@@ -467,9 +485,8 @@ AS $BODY$
           NOW() AS "createdAt",
           NULL AS "updatedAt"
       FROM temp_final_data_dedup
-      ON CONFLICT (company,"supplierId",country, sku)
+      ON CONFLICT (company,"supplierId",country, sku, "startDate")
       DO UPDATE SET
-          "startDate" = EXCLUDED."startDate",
           "endDate"   = EXCLUDED."endDate",
           "priceClass1" = EXCLUDED."priceClass1",
           "priceClass2" = EXCLUDED."priceClass2",
@@ -515,7 +532,6 @@ AS $BODY$
       DROP TABLE IF EXISTS temp_price_lists;
       DROP TABLE IF EXISTS temp_final_data;
       DROP TABLE IF EXISTS temp_final_data_dedup;
-
 
       ELSE
           RAISE INFO 'tPriceProductRules_temp is empty - skipping (no action taken)';

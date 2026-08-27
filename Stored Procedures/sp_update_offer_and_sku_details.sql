@@ -1,7 +1,7 @@
 -- PROCEDURE: public.sp_update_offer_and_sku_details()
- 
+
 -- DROP PROCEDURE IF EXISTS public.sp_update_offer_and_sku_details();
- 
+
 CREATE OR REPLACE PROCEDURE public.sp_update_offer_and_sku_details(
 	)
 LANGUAGE 'plpgsql'
@@ -11,6 +11,10 @@ DECLARE
     v_end_time   timestamptz;
     v_log_id     bigint;
     v_job_name   text := 'sp_update_offer_and_sku_details';
+    v_offer_rec  record;
+    v_from_price record;
+    v_display_offer_ids   int[];
+    v_fromprice_offer_ids int[];
 BEGIN
     -- Run in Australia/Sydney time
     SET LOCAL TIME ZONE 'Australia/Sydney';
@@ -43,6 +47,7 @@ BEGIN
                  OR (pld."priceList" = '050')
               )
 	     AND pld."isActive" = TRUE
+	     AND pld."startDate" <= CURRENT_DATE
       )
       AND NOT EXISTS (
             SELECT 1
@@ -50,6 +55,7 @@ BEGIN
             WHERE p."sku" = ppr."sku"
               AND p."country" = ppr."country"
 	      AND ppr."isActive" = TRUE
+	      AND ppr."startDate" <= CURRENT_DATE
       );
 	RAISE NOTICE 'Finished updating tProducts (Deactivate) at: %', clock_timestamp();
  
@@ -74,6 +80,7 @@ BEGIN
                  OR (pld."priceList" = '050')
               )
              AND pld."isActive" = TRUE
+             AND pld."startDate" <= CURRENT_DATE
       );
        UPDATE "tProducts" p
     SET "isActive" = TRUE
@@ -84,6 +91,7 @@ BEGIN
             WHERE p."sku" = ppr."sku"
               AND p."country" = ppr."country"
 	      AND ppr."isActive" = TRUE
+	      AND ppr."startDate" <= CURRENT_DATE
       );
  
 	RAISE NOTICE 'Finished updating tProducts (Activate) at: %', clock_timestamp();
@@ -229,6 +237,86 @@ BEGIN
  
 	RAISE NOTICE 'Finished updating tEventOfferDetail (Reset Page Position) at: %', clock_timestamp();
 
+	 
+       -------------------------------------------------------------------------
+    -- Step 10: Clear stale indicators on inactive SKUs, then rebuild
+    -- imageReference and fromPrice on tEventOffer for affected offers
+    -- (Open/Locked events only).
+    -------------------------------------------------------------------------
+    -- Offers with an inactive SKU still flagged displayIndicator = TRUE
+    SELECT ARRAY_AGG(DISTINCT eod."offerId")
+    INTO v_display_offer_ids
+    FROM "tEventOfferDetail" eod
+    JOIN "tEventOffer" eo ON eo."offerId" = eod."offerId"
+    WHERE eod."isSkuActive" = FALSE
+      AND eo."isOfferActive" = TRUE
+      AND eod."displayIndicator" = TRUE;
+ 
+    -- Offers with an inactive SKU still flagged fromPriceIndicator = TRUE
+    SELECT ARRAY_AGG(DISTINCT eod."offerId")
+    INTO v_fromprice_offer_ids
+    FROM "tEventOfferDetail" eod
+    JOIN "tEventOffer" eo ON eo."offerId" = eod."offerId"
+    WHERE eod."isSkuActive" = FALSE
+      AND eo."isOfferActive" = TRUE
+      AND eod."fromPriceIndicator" = TRUE;
+ 
+    RAISE NOTICE 'Started clearing displayIndicator for inactive SKUs at: %', clock_timestamp();
+    IF v_display_offer_ids IS NOT NULL THEN
+        UPDATE "tEventOfferDetail" eod
+        SET "displayIndicator" = FALSE
+        WHERE eod."isSkuActive" = FALSE
+          AND eod."displayIndicator" = TRUE
+          AND eod."offerId" = ANY (v_display_offer_ids);
+ 
+        UPDATE "tEventOffer" eo
+        SET "imageReference" = agg."partNos"
+        FROM (
+                SELECT eod."offerId" AS "offerId",
+                       STRING_AGG(eod."partNo", ',') AS "partNos"
+                FROM "tEventOfferDetail" eod
+                WHERE eod."offerId" = ANY (v_display_offer_ids)
+                  AND eod."isSkuActive" = TRUE
+                  AND eod."displayIndicator" = TRUE
+                GROUP BY eod."offerId"
+             ) agg
+        WHERE eo."offerId" = agg."offerId";
+    END IF;
+    RAISE NOTICE 'Finished clearing displayIndicator for inactive SKUs at: %', clock_timestamp();
+ 
+    RAISE NOTICE 'Started rebuilding fromPrice for affected offers at: %', clock_timestamp();
+    IF v_fromprice_offer_ids IS NOT NULL THEN
+        UPDATE "tEventOfferDetail" eod
+        SET "fromPriceIndicator" = FALSE
+        WHERE eod."isSkuActive" = FALSE
+          AND eod."fromPriceIndicator" = TRUE
+          AND eod."offerId" = ANY (v_fromprice_offer_ids);
+ 
+        FOR v_offer_rec IN
+            SELECT DISTINCT offer_id FROM UNNEST(v_fromprice_offer_ids) AS offer_id
+        LOOP
+            SELECT skus, advprice INTO v_from_price
+            FROM fn_get_from_price_skus(v_offer_rec.offer_id);
+ 
+            IF v_from_price.skus IS NOT NULL THEN
+                UPDATE "tEventOfferDetail" eod
+                SET "fromPriceIndicator" = TRUE
+                WHERE eod."offerId" = v_offer_rec.offer_id
+                  AND eod."sku" = ANY (STRING_TO_ARRAY(v_from_price.skus, ','));
+ 
+                UPDATE "tEventOffer" eo
+                SET "fromPrice" = TRUE
+                WHERE eo."offerId" = v_offer_rec.offer_id;
+            ELSE
+                UPDATE "tEventOffer" eo
+                SET "fromPrice" = FALSE
+                WHERE eo."offerId" = v_offer_rec.offer_id;
+            END IF;
+        END LOOP;
+    END IF;
+    RAISE NOTICE 'Finished rebuilding fromPrice for affected offers at: %', clock_timestamp();
+ 
+  
     v_end_time := clock_timestamp();
 
     UPDATE execution_log

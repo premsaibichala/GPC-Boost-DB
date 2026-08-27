@@ -1,6 +1,6 @@
 -- FUNCTION: public.get_dataview(integer, integer, text[], text[], text[], text[], boolean, boolean, boolean, boolean, integer, integer)
 
--- DROP FUNCTION IF EXISTS public.get_dataview(integer, integer, text[], text[], text[], text[], boolean, boolean, boolean, boolean, integer, integer);
+DROP FUNCTION IF EXISTS public.get_dataview(integer, integer, text[], text[], text[], text[], boolean, boolean, boolean, boolean, integer, integer);
 
 CREATE OR REPLACE FUNCTION public.get_dataview(
 	p_offer_id integer DEFAULT 1,
@@ -15,7 +15,7 @@ CREATE OR REPLACE FUNCTION public.get_dataview(
 	p_sort_catfcst_desc boolean DEFAULT NULL::boolean,
 	p_page_number integer DEFAULT 1,
 	p_page_size integer DEFAULT 100)
-    RETURNS TABLE(sku text, part_number text, brand text, description text, frompriceind boolean, displayind boolean, clearance text, showroom text, advpricegst numeric, edprice numeric, calcsavepercent numeric, calcsavevalue numeric, lecost numeric, natavgcost numeric, catfcst integer, incrfcst integer, fcstcost numeric, fcstsales numeric, fcsttmvalue numeric, fcsttmpercent numeric, edunits numeric, scansupportvalue numeric, scansupportpercent numeric, sohstore integer, sohdc integer, grp0qty integer, grp1qty integer, grp2qty integer, grp3qty integer, grp4qty integer, grp5qty integer, totaltieup integer, tieuppercentfcst numeric, tieupcost numeric, supplierid text, suppliername text, ic2 text, ic3 text, ic4 text, comofferic1 text, incrementaltmdollar numeric, incrementalsalesdollar numeric, edcost numeric, edunittmdollar numeric, advunittmdollar numeric, advsalesdollar numeric, edsalesdollar numeric, totalmultibuyprice numeric, requiredqty integer, advpriceexgst numeric, purchaseqty integer, freeqty integer, iscatfcstlocked boolean, total_count integer, isskuedited boolean, isskuactive boolean) 
+    RETURNS TABLE(sku text, part_number text, brand text, description text, frompriceind boolean, displayind boolean, clearance text, showroom text, advpricegst numeric, edprice numeric, futureedprice numeric, futureedeffectivedate date, calcsavepercent numeric, calcsavevalue numeric, lecost numeric, natavgcost numeric, catfcst integer, incrfcst integer, fcstcost numeric, fcstsales numeric, fcsttmvalue numeric, fcsttmpercent numeric, edunits numeric, scansupportvalue numeric, scansupportpercent numeric, sohstore integer, sohdc integer, grp0qty integer, grp1qty integer, grp2qty integer, grp3qty integer, grp4qty integer, grp5qty integer, totaltieup integer, tieuppercentfcst numeric, tieupcost numeric, supplierid text, suppliername text, ic2 text, ic3 text, ic4 text, comofferic1 text, incrementaltmdollar numeric, incrementalsalesdollar numeric, edcost numeric, edunittmdollar numeric, advunittmdollar numeric, advsalesdollar numeric, edsalesdollar numeric, totalmultibuyprice numeric, requiredqty integer, advpriceexgst numeric, purchaseqty integer,purchaseprice numeric, freeqty integer, iscatfcstlocked boolean, total_count integer, isskuedited boolean, isskuactive boolean, isfrompriceoverriden boolean) 
     LANGUAGE 'plpgsql'
     COST 100
     VOLATILE PARALLEL UNSAFE
@@ -115,6 +115,9 @@ WITH filtered AS (
 
         e."advertisedPriceGst",
         e."everydayPriceGst",
+		
+		e."futureEdPrice",
+        e."futureEdEffectiveDate",
         e."advertisedPriceGst" / (1+e."gst") as "advertisedPrice",
 
         e."LatestEffectiveCost",
@@ -150,9 +153,11 @@ WITH filtered AS (
         eo."requiredQuantity",
 		eo."spacePurchase",
 		e."purchaseQuantity",
+		e."purchasePrice",
 		e."isSkuEdited",
         COUNT(*) OVER() AS total_count,
-        e."isSkuActive"
+        e."isSkuActive",
+		e."isFromPriceOverridden"
     FROM "tEventOfferDetail" e
     JOIN "tEvent" ev
       ON e."eventId" = ev."eventId"
@@ -185,6 +190,8 @@ SELECT
 
     f."advertisedPriceGst"::numeric          AS advpricegst,
     f."everydayPriceGst"::numeric            AS edprice,
+	f."futureEdPrice"                        AS "futureEdPrice",
+	f."futureEdEffectiveDate"                    AS "futureEdEffectiveDate",
 
     ROUND(
         CASE
@@ -283,12 +290,14 @@ ROUND(
 
     ROUND(f."advertisedPrice"::numeric,2)              AS advpriceexgst,
     f."purchaseQuantity"::int                AS purchaseqty,
+	f."purchasePrice":: numeric					 AS purchaseprice,
     f."offerQuantity"::int                   AS freeqty,
 
     f."isCategoryForecastLocked"              AS iscatfcstlocked,
     f.total_count::int                       AS total_count,
 	f."isSkuEdited" 					     AS isskuedited,
-    f."isSkuActive"                          AS isskuactive
+    f."isSkuActive"                          AS isskuactive,
+	f."isFromPriceOverridden"				 AS isfrompriceoverriden
 FROM filtered f
 ' ||CASE WHEN TRIM(v_order) <> '' THEN v_order ELSE 'ORDER BY f.sku' END || ' 
 OFFSET ' || v_offset || '
