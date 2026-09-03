@@ -1,7 +1,7 @@
 -- FUNCTION: public.get_products_by_filters(integer, text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], boolean, boolean, boolean, integer, integer, integer, timestamp without time zone, boolean, boolean, boolean, boolean, boolean, boolean, boolean, integer, integer)
-
+ 
 -- DROP FUNCTION IF EXISTS public.get_products_by_filters(integer, text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], boolean, boolean, boolean, integer, integer, integer, timestamp without time zone, boolean, boolean, boolean, boolean, boolean, boolean, boolean, integer, integer);
-
+ 
 CREATE OR REPLACE FUNCTION public.get_products_by_filters(
 	p_event_id integer,
 	p_skus text[] DEFAULT NULL::text[],
@@ -41,7 +41,7 @@ CREATE OR REPLACE FUNCTION public.get_products_by_filters(
     COST 100
     VOLATILE PARALLEL UNSAFE
     ROWS 1000
-
+ 
 AS $BODY$
 DECLARE
     v_sql TEXT;
@@ -72,7 +72,6 @@ BEGIN
     v_isnew_cond := 
         'f."createdAt" IS NOT NULL'
         || ' AND f."createdAt"::timestamp > ' || v_searched_at_date_literal;
- 
     -- SKUs that belong to the current offer (type 3 ignores offerNo)
     IF p_offerTypeId = 3 THEN
         v_offer_skus_subquery := 'SELECT "sku" FROM "tEventOfferDetail" WHERE "offerId" = '
@@ -83,7 +82,6 @@ BEGIN
             || ' AND "offerNo" = ' || COALESCE(p_offerNo::text, 'NULL')
             || ' AND "isSkuActive" = FALSE';
     END IF;
- 
     -- Active / edited filter applied INSIDE the CTE so total_count is accurate.
     --   p_is_edited = TRUE  -> active products PLUS inactive products that exist in this offer
     --   p_is_edited = FALSE -> active products only (offer detail irrelevant to inclusion)
@@ -92,7 +90,6 @@ BEGIN
     ELSE
         v_where := v_where || ' AND "isActive" = TRUE ';
     END IF;
- 
 	-- Count event offers
 	IF p_offerTypeId = 3 THEN
 	    SELECT COUNT(*)
@@ -108,7 +105,6 @@ BEGIN
 	END IF;
 	-- Count new products
  
-
 	IF p_skus IS NOT NULL AND array_length(p_skus, 1) > 0 THEN
         v_where := v_where || ' AND (' ||
             array_to_string(ARRAY(SELECT format('"sku" ILIKE %L', s || '%') FROM unnest(p_skus) s), ' OR ')
@@ -127,6 +123,12 @@ BEGIN
     IF p_not_supplier_ids IS NOT NULL AND array_length(p_not_supplier_ids, 1) > 0 THEN
         v_where := v_where || ' AND NOT (' ||
             array_to_string(ARRAY(SELECT format('"supplierId" ILIKE %L', s || '%') FROM unnest(p_not_supplier_ids) s), ' OR ')
+            || ') ';
+    END IF;
+ 
+	IF p_supplier_names IS NOT NULL AND array_length(p_supplier_names, 1) > 0 THEN
+        v_where := v_where || ' AND (' ||
+            array_to_string(ARRAY(SELECT format('"supplierName" ILIKE %L', s || '%') FROM unnest(p_supplier_names) s), ' OR ')
             || ') ';
     END IF;
     -- Same pattern for brand and item class filters:
@@ -206,7 +208,6 @@ BEGIN
             ) || ') ';
     END IF;
  
-
 	 IF p_part_descriptions IS NOT NULL AND array_length(p_part_descriptions, 1) > 0 THEN
         v_where := v_where || ' AND (' ||
             array_to_string(
@@ -237,7 +238,6 @@ BEGIN
                        || ' AND (' || v_isnew_cond || ')';
     -- Execute the new count SQL
     EXECUTE v_new_count_sql INTO v_new_count;
- 
     --------------------------------------------------------
     -- Final SQL with paging
     --------------------------------------------------------
@@ -275,7 +275,6 @@ v_sql := '
            ON 
 		   f."sku" = e."sku"
 		   AND e."offerId" = ' || COALESCE(p_offerId::text, 'NULL') || '
- 
   WHERE
       (' || (CASE WHEN p_selected THEN 'e."sku" IS NOT NULL' ELSE 'TRUE' END) || ')
   AND (' || (CASE WHEN p_new THEN v_isnew_cond   ELSE 'TRUE' END) || ')
@@ -318,7 +317,6 @@ ELSE
 		   f."sku" = e."sku"
 		   AND e."offerId" = ' || COALESCE(p_offerId::text, 'NULL') || '
            AND e."offerNo" = ' || COALESCE(p_offerNo::text, 'NULL') || '
- 
   WHERE
       (' || (CASE WHEN p_selected THEN 'e."sku" IS NOT NULL' ELSE 'TRUE' END) || ')
   AND (' || (CASE WHEN p_new THEN v_isnew_cond   ELSE 'TRUE' END) || ')
@@ -331,3 +329,5 @@ END IF;
     RETURN QUERY EXECUTE v_sql;
 END;
 $BODY$;
+ 
+ 
