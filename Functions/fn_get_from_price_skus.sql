@@ -1,7 +1,7 @@
 ﻿-- FUNCTION: public.fn_get_from_price_skus(integer)
-
+ 
 -- DROP FUNCTION IF EXISTS public.fn_get_from_price_skus(integer);
-
+ 
 CREATE OR REPLACE FUNCTION public.fn_get_from_price_skus(
 	p_offerid integer)
     RETURNS TABLE(skus text, advprice numeric) 
@@ -9,7 +9,7 @@ CREATE OR REPLACE FUNCTION public.fn_get_from_price_skus(
     COST 100
     VOLATILE PARALLEL UNSAFE
     ROWS 1000
-
+ 
 AS $BODY$
       DECLARE
           v_lowestPrice NUMERIC(19,5);
@@ -23,14 +23,14 @@ AS $BODY$
               INNER JOIN "tEvent" ev ON eod."eventId" = ev."eventId"
               INNER JOIN "tProducts" p ON eod."sku" = p."sku"
               INNER JOIN "tInventory" inv ON inv."sku" = eod."sku"
-                                         AND inv."company" = ev."company"
-              WHERE eod."offerId" = p_offerId
+                                         AND inv."company" IN (ev."company", '12', '52')
+              WHERE eod."offerId" = p_offerid
 			  AND eod."advertisedPriceGst" >= 1
                 AND inv."onHand" > 0
                 AND (p."clearance" IS NULL OR p."clearance" <> 'Y')
                 AND p."isActive" = TRUE
           ) INTO v_hasCriteriaMet;
-
+ 
           -- Get the lowest price based on criteria
           SELECT COALESCE(
               (SELECT MIN(eod."advertisedPriceGst")
@@ -38,7 +38,7 @@ AS $BODY$
                INNER JOIN "tEvent" ev ON eod."eventId" = ev."eventId"
                INNER JOIN "tProducts" p ON eod."sku" = p."sku"
                INNER JOIN "tInventory" inv ON inv."sku" = eod."sku"
-                                          AND inv."company" = ev."company"
+                                          AND inv."company" IN (ev."company", '12', '52')
                WHERE eod."offerId" = p_offerId
 			   AND eod."advertisedPriceGst" >= 1
                  AND inv."onHand" > 0
@@ -49,7 +49,7 @@ AS $BODY$
                WHERE eod."offerId" = p_offerId
 			   AND eod."advertisedPriceGst" >= 1)
           ) INTO v_lowestPrice;
-
+ 
           -- Get comma-separated SKUs based on criteria
           IF v_hasCriteriaMet THEN
               SELECT STRING_AGG(eod."sku", ',')
@@ -58,7 +58,7 @@ AS $BODY$
               INNER JOIN "tEvent" ev ON eod."eventId" = ev."eventId"
               INNER JOIN "tProducts" p ON eod."sku" = p."sku"
               INNER JOIN "tInventory" inv ON inv."sku" = eod."sku"
-                                         AND inv."company" = ev."company"
+                                         AND inv."company" IN (ev."company", '12', '52')
               WHERE eod."offerId" = p_offerId
                 AND eod."advertisedPriceGst" = v_lowestPrice
 				AND eod."advertisedPriceGst" >= 1
@@ -73,12 +73,8 @@ AS $BODY$
                 AND eod."advertisedPriceGst" = v_lowestPrice
 				AND eod."advertisedPriceGst" >= 1;
           END IF;
-
+ 
           -- Return single row with two columns
           RETURN QUERY SELECT v_skuList, v_lowestPrice;
       END;
-
-  
 $BODY$;
-
-
