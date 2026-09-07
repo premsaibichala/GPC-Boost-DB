@@ -1,4 +1,4 @@
--- PROCEDURE: public.sp_update_lecost_natavgcost_for_comboskulist(integer)
+﻿-- PROCEDURE: public.sp_update_lecost_natavgcost_for_comboskulist(integer)
 
 -- DROP PROCEDURE IF EXISTS public.sp_update_lecost_natavgcost_for_comboskulist(integer);
 
@@ -470,3 +470,4 @@ BEGIN
  
 END;
 $BODY$;
+

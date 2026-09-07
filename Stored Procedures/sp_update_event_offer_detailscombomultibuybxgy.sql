@@ -1,4 +1,4 @@
--- PROCEDURE: public.sp_update_event_offer_detailscombomultibuybxgy()
+﻿-- PROCEDURE: public.sp_update_event_offer_detailscombomultibuybxgy()
 
 -- DROP PROCEDURE IF EXISTS public.sp_update_event_offer_detailscombomultibuybxgy();
 
@@ -106,7 +106,19 @@ BEGIN
     -- ------------------------------------------------------------------
     DROP TABLE IF EXISTS tmp_future_pivoted_prices_combomultibuybxgy;
     CREATE TEMP TABLE tmp_future_pivoted_prices_combomultibuybxgy AS
-    WITH "futurePricelistDetail" AS (
+    WITH "relevantSkus" AS (
+        SELECT DISTINCT eod."sku"
+        FROM "tEventOfferDetail" eod
+        INNER JOIN "tEventOffer" eoh
+            ON eod."offerId" = eoh."offerId"
+           AND eod."offerNo" = eoh."offerNumber"
+        INNER JOIN "tEvent" eh
+            ON eh."eventId" = eoh."eventId"
+        WHERE eh."status" IN ('Open', 'Locked')
+          AND eoh."OfferTypeId" IN (3, 5, 4)
+          AND eod."isSkuActive" = TRUE
+    ),
+    "futurePricelistDetail" AS (
         SELECT
             pld."sku",
             pld."priceList",
@@ -1755,3 +1767,4 @@ EXCEPTION
         RAISE;
 END;
 $BODY$;
+

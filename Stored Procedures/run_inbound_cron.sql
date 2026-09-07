@@ -1,4 +1,4 @@
--- PROCEDURE: public.run_inbound_cron()
+﻿-- PROCEDURE: public.run_inbound_cron()
 
 -- DROP PROCEDURE IF EXISTS public.run_inbound_cron();
 
@@ -85,3 +85,4 @@ BEGIN
 
 END;
 $BODY$;
+

@@ -1,4 +1,4 @@
--- FUNCTION: public.has_future_rrp_offerid_offerno(integer, integer)
+﻿-- FUNCTION: public.has_future_rrp_offerid_offerno(integer, integer)
  
 -- DROP FUNCTION IF EXISTS public.has_future_rrp_offerid_offerno(integer, integer);
  
@@ -22,3 +22,4 @@ BEGIN
     );
 END;
 $BODY$;
+

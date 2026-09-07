@@ -1,4 +1,4 @@
--- View: public."vwInventoryExtract"
+﻿-- View: public."vwInventoryExtract"
 
 -- DROP VIEW public."vwInventoryExtract";
 
@@ -228,3 +228,266 @@ CREATE OR REPLACE VIEW public."vwInventoryExtract" AS
            FROM ranked r) t
   WHERE include_flag = 1
   ORDER BY "PAGE", "PAGEPOSN", "COMCATMAN", "COMOFFERIC1", "COMOFFERTYPE", "OFFERTYPE", "PARTNO";
+
+
+
+UPDATE "tEventOfferSearchHistory" h
+SET "searchJson" =
+    jsonb_set(
+        jsonb_set(
+            jsonb_set(
+                jsonb_set(
+                    jsonb_set(
+                        jsonb_set(
+                            jsonb_set(
+                                jsonb_set(
+                                    h."searchJson"::jsonb,
+                                    '{ItemClass1}',
+                                    CASE
+                                        WHEN jsonb_typeof(h."searchJson"::jsonb -> 'ItemClass1') = 'array'
+                                        THEN (
+                                            SELECT jsonb_agg(
+                                                CASE
+                                                    WHEN v.value LIKE '% – %'
+                                                        THEN to_jsonb(v.value)
+                                                    ELSE COALESCE(
+                                                        (
+                                                            SELECT to_jsonb(
+                                                                v.value || ' – ' || p."itemClass1Description"
+                                                            )
+                                                            FROM "tProducts" p
+                                                            WHERE p."itemClass1" = v.value
+                                                              AND p."itemClass1Description" IS NOT NULL
+                                                            LIMIT 1
+                                                        ),
+                                                        to_jsonb(v.value)
+                                                    )
+                                                END
+                                                ORDER BY v.ord
+                                            )
+                                            FROM jsonb_array_elements_text(
+                                                h."searchJson"::jsonb -> 'ItemClass1'
+                                            ) WITH ORDINALITY v(value, ord)
+                                        )
+                                        ELSE h."searchJson"::jsonb -> 'ItemClass1'
+                                    END
+                                ),
+                                '{ItemClass2}',
+                                CASE
+                                    WHEN jsonb_typeof(h."searchJson"::jsonb -> 'ItemClass2') = 'array'
+                                    THEN (
+                                        SELECT jsonb_agg(
+                                            CASE
+                                                WHEN v.value LIKE '% – %'
+                                                    THEN to_jsonb(v.value)
+                                                ELSE COALESCE(
+                                                    (
+                                                        SELECT to_jsonb(
+                                                            v.value || ' – ' || p."itemClass2Description"
+                                                        )
+                                                        FROM "tProducts" p
+                                                        WHERE p."itemClass2" = v.value
+                                                          AND p."itemClass2Description" IS NOT NULL
+                                                        LIMIT 1
+                                                    ),
+                                                    to_jsonb(v.value)
+                                                )
+                                            END
+                                            ORDER BY v.ord
+                                        )
+                                        FROM jsonb_array_elements_text(
+                                            h."searchJson"::jsonb -> 'ItemClass2'
+                                        ) WITH ORDINALITY v(value, ord)
+                                    )
+                                    ELSE h."searchJson"::jsonb -> 'ItemClass2'
+                                END
+                            ),
+                            '{ItemClass3}',
+                            CASE
+                                WHEN jsonb_typeof(h."searchJson"::jsonb -> 'ItemClass3') = 'array'
+                                THEN (
+                                    SELECT jsonb_agg(
+                                        CASE
+                                            WHEN v.value LIKE '% – %'
+                                                THEN to_jsonb(v.value)
+                                            ELSE COALESCE(
+                                                (
+                                                    SELECT to_jsonb(
+                                                        v.value || ' – ' || p."itemClass3Description"
+                                                    )
+                                                    FROM "tProducts" p
+                                                    WHERE p."itemClass3" = v.value
+                                                      AND p."itemClass3Description" IS NOT NULL
+                                                    LIMIT 1
+                                                ),
+                                                to_jsonb(v.value)
+                                            )
+                                        END
+                                        ORDER BY v.ord
+                                    )
+                                    FROM jsonb_array_elements_text(
+                                        h."searchJson"::jsonb -> 'ItemClass3'
+                                    ) WITH ORDINALITY v(value, ord)
+                                )
+                                ELSE h."searchJson"::jsonb -> 'ItemClass3'
+                            END
+                        ),
+                        '{ItemClass4}',
+                        CASE
+                            WHEN jsonb_typeof(h."searchJson"::jsonb -> 'ItemClass4') = 'array'
+                            THEN (
+                                SELECT jsonb_agg(
+                                    CASE
+                                        WHEN v.value LIKE '% – %'
+                                            THEN to_jsonb(v.value)
+                                        ELSE COALESCE(
+                                            (
+                                                SELECT to_jsonb(
+                                                    v.value || ' – ' || p."itemClass4Description"
+                                                )
+                                                FROM "tProducts" p
+                                                WHERE p."itemClass4" = v.value
+                                                  AND p."itemClass4Description" IS NOT NULL
+                                                LIMIT 1
+                                            ),
+                                            to_jsonb(v.value)
+                                        )
+                                    END
+                                    ORDER BY v.ord
+                                )
+                                FROM jsonb_array_elements_text(
+                                    h."searchJson"::jsonb -> 'ItemClass4'
+                                ) WITH ORDINALITY v(value, ord)
+                            )
+                            ELSE h."searchJson"::jsonb -> 'ItemClass4'
+                        END
+                    ),
+                    '{NotItemClass1}',
+                    CASE
+                        WHEN jsonb_typeof(h."searchJson"::jsonb -> 'NotItemClass1') = 'array'
+                        THEN (
+                            SELECT jsonb_agg(
+                                CASE
+                                    WHEN v.value LIKE '% – %'
+                                        THEN to_jsonb(v.value)
+                                    ELSE COALESCE(
+                                        (
+                                            SELECT to_jsonb(
+                                                v.value || ' – ' || p."itemClass1Description"
+                                            )
+                                            FROM "tProducts" p
+                                            WHERE p."itemClass1" = v.value
+                                              AND p."itemClass1Description" IS NOT NULL
+                                            LIMIT 1
+                                        ),
+                                        to_jsonb(v.value)
+                                    )
+                                END
+                                ORDER BY v.ord
+                            )
+                            FROM jsonb_array_elements_text(
+                                h."searchJson"::jsonb -> 'NotItemClass1'
+                            ) WITH ORDINALITY v(value, ord)
+                        )
+                        ELSE h."searchJson"::jsonb -> 'NotItemClass1'
+                    END
+                ),
+                '{NotItemClass2}',
+                CASE
+                    WHEN jsonb_typeof(h."searchJson"::jsonb -> 'NotItemClass2') = 'array'
+                    THEN (
+                        SELECT jsonb_agg(
+                            CASE
+                                WHEN v.value LIKE '% – %'
+                                    THEN to_jsonb(v.value)
+                                ELSE COALESCE(
+                                    (
+                                        SELECT to_jsonb(
+                                            v.value || ' – ' || p."itemClass2Description"
+                                        )
+                                        FROM "tProducts" p
+                                        WHERE p."itemClass2" = v.value
+                                          AND p."itemClass2Description" IS NOT NULL
+                                        LIMIT 1
+                                    ),
+                                    to_jsonb(v.value)
+                                )
+                            END
+                            ORDER BY v.ord
+                        )
+                        FROM jsonb_array_elements_text(
+                            h."searchJson"::jsonb -> 'NotItemClass2'
+                        ) WITH ORDINALITY v(value, ord)
+                    )
+                    ELSE h."searchJson"::jsonb -> 'NotItemClass2'
+                END
+            ),
+            '{NotItemClass3}',
+            CASE
+                WHEN jsonb_typeof(h."searchJson"::jsonb -> 'NotItemClass3') = 'array'
+                THEN (
+                    SELECT jsonb_agg(
+                        CASE
+                            WHEN v.value LIKE '% – %'
+                                THEN to_jsonb(v.value)
+                            ELSE COALESCE(
+                                (
+                                    SELECT to_jsonb(
+                                        v.value || ' – ' || p."itemClass3Description"
+                                    )
+                                    FROM "tProducts" p
+                                    WHERE p."itemClass3" = v.value
+                                      AND p."itemClass3Description" IS NOT NULL
+                                    LIMIT 1
+                                ),
+                                to_jsonb(v.value)
+                            )
+                        END
+                        ORDER BY v.ord
+                    )
+                    FROM jsonb_array_elements_text(
+                        h."searchJson"::jsonb -> 'NotItemClass3'
+                    ) WITH ORDINALITY v(value, ord)
+                )
+                ELSE h."searchJson"::jsonb -> 'NotItemClass3'
+            END
+        ),
+        '{NotItemClass4}',
+        CASE
+            WHEN jsonb_typeof(h."searchJson"::jsonb -> 'NotItemClass4') = 'array'
+            THEN (
+                SELECT jsonb_agg(
+                    CASE
+                        WHEN v.value LIKE '% – %'
+                            THEN to_jsonb(v.value)
+                        ELSE COALESCE(
+                            (
+                                SELECT to_jsonb(
+                                    v.value || ' – ' || p."itemClass4Description"
+                                )
+                                FROM "tProducts" p
+                                WHERE p."itemClass4" = v.value
+                                  AND p."itemClass4Description" IS NOT NULL
+                                LIMIT 1
+                            ),
+                            to_jsonb(v.value)
+                        )
+                    END
+                    ORDER BY v.ord
+                )
+                FROM jsonb_array_elements_text(
+                    h."searchJson"::jsonb -> 'NotItemClass4'
+                ) WITH ORDINALITY v(value, ord)
+            )
+            ELSE h."searchJson"::jsonb -> 'NotItemClass4'
+        END
+    );
+
+
+
+DROP INDEX IF EXISTS public.idx_tpriceproductrules_pk;
+ 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tpriceproductrules_pk
+    ON public."tPriceProductRules"
+    (company, country, "supplierId", sku,"startDate" );
+

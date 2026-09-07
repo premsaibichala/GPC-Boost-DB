@@ -1,4 +1,4 @@
--- PROCEDURE: public.sp_update_event_offer_detailslppobxgx()
+﻿-- PROCEDURE: public.sp_update_event_offer_detailslppobxgx()
 
 -- DROP PROCEDURE IF EXISTS public.sp_update_event_offer_detailslppobxgx();
 
@@ -106,7 +106,19 @@ BEGIN
     -- ------------------------------------------------------------------
     DROP TABLE IF EXISTS tmp_future_pivoted_prices_lppobxgx;
     CREATE TEMP TABLE tmp_future_pivoted_prices_lppobxgx AS
-    WITH "futurePricelistDetail" AS (
+    WITH "relevantSkus" AS (
+        SELECT DISTINCT eod."sku"
+        FROM "tEventOfferDetail" eod
+        INNER JOIN "tEventOffer" eoh
+            ON eod."offerId" = eoh."offerId"
+           AND eod."offerNo" = eoh."offerNumber"
+        INNER JOIN "tEvent" eh
+            ON eh."eventId" = eoh."eventId"
+        WHERE eh."status" IN ('Open', 'Locked')
+          AND eoh."OfferTypeId" IN (1, 13, 17)
+          AND eod."isSkuActive" = TRUE
+    ),
+    "futurePricelistDetail" AS (
         SELECT
             pld."sku",
             pld."priceList",
@@ -1404,3 +1416,4 @@ EXCEPTION
         RAISE;
 END;
 $BODY$;
+

@@ -1,4 +1,4 @@
--- FUNCTION: public.get_products_by_filters(integer, text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], boolean, boolean, boolean, integer, integer, integer, timestamp without time zone, boolean, boolean, boolean, boolean, boolean, boolean, boolean, integer, integer)
+﻿-- FUNCTION: public.get_products_by_filters(integer, text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], boolean, boolean, boolean, integer, integer, integer, timestamp without time zone, boolean, boolean, boolean, boolean, boolean, boolean, boolean, integer, integer)
  
 -- DROP FUNCTION IF EXISTS public.get_products_by_filters(integer, text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], boolean, boolean, boolean, integer, integer, integer, timestamp without time zone, boolean, boolean, boolean, boolean, boolean, boolean, boolean, integer, integer);
  
@@ -329,5 +329,4 @@ END IF;
     RETURN QUERY EXECUTE v_sql;
 END;
 $BODY$;
- 
  

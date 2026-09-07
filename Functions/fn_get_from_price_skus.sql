@@ -1,4 +1,4 @@
--- FUNCTION: public.fn_get_from_price_skus(integer)
+﻿-- FUNCTION: public.fn_get_from_price_skus(integer)
 
 -- DROP FUNCTION IF EXISTS public.fn_get_from_price_skus(integer);
 
@@ -80,3 +80,5 @@ AS $BODY$
 
   
 $BODY$;
+
+

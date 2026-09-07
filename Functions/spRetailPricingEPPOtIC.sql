@@ -1,6 +1,6 @@
--- FUNCTION: public.spRetailPricingEPPOtIC(integer, integer, integer, character varying, character varying, character varying, character varying)
+﻿-- FUNCTION: public.spRetailPricingEPPOtIC(integer, integer, integer, character varying, character varying, character varying, character varying)
 
--- DROP FUNCTION IF EXISTS public."spRetailPricingEPPOtIC"(integer, integer, integer, character varying, character varying, character varying, character varying);
+DROP FUNCTION IF EXISTS public."spRetailPricingEPPOtIC"(integer, integer, integer, character varying, character varying, character varying, character varying);
 
 CREATE OR REPLACE FUNCTION public."spRetailPricingEPPOtIC"(
 	p_eventid integer,
@@ -10,7 +10,7 @@ CREATE OR REPLACE FUNCTION public."spRetailPricingEPPOtIC"(
 	p_comofferic character varying DEFAULT NULL::character varying,
 	p_criteria character varying DEFAULT NULL::character varying,
 	p_fieldlist character varying DEFAULT '*'::character varying)
-    RETURNS TABLE("EVENTDESC" character varying, "PAGE" integer, "PAGEPOSN" integer, "COMOFFERTYPE" character varying, "COMOFFERIC1" character varying, "PARTNO" character varying, "DESC" character varying, "BRAND" character varying, "SKU" character varying, "EDPRICEGST" numeric, "STARTDTE" date, "ENDDTE" date, "COMCATMAN" character varying, "OFFERNAME" character varying, "IC4" character varying, "OFFERTYPE" character varying, "SAVEPCT" numeric, "ADVPRICEGST" numeric, "CALCSAVEPCT" numeric, "CALCSAVEVAL" numeric, "TOTEDPRICEGST" numeric, "TOTADVPRICEGST" numeric, "TOTCALCSAVEVAL" numeric, "Ignition" numeric, "PRCONLY" boolean) 
+    RETURNS TABLE("EVENTDESC" character varying, "PAGE" integer, "PAGEPOSN" integer, "COMOFFERTYPE" character varying, "LOYALTY" boolean, "COMOFFERIC1" character varying, "PARTNO" character varying, "DESC" character varying, "BRAND" character varying, "SKU" character varying, "EDPRICEGST" numeric, "STARTDTE" date, "ENDDTE" date, "COMCATMAN" character varying, "OFFERNAME" character varying, "IC4" character varying, "OFFERTYPE" character varying, "SAVEPCT" numeric, "ADVPRICEGST" numeric, "CALCSAVEPCT" numeric, "CALCSAVEVAL" numeric, "TOTEDPRICEGST" numeric, "TOTADVPRICEGST" numeric, "TOTCALCSAVEVAL" numeric, "Ignition" numeric, "PRCONLY" boolean) 
     LANGUAGE 'plpgsql'
     COST 100
     VOLATILE PARALLEL UNSAFE
@@ -57,6 +57,7 @@ BEGIN
                     ELSE eo."pagePosition"
                 END  AS "PAGEPOSN",
             eo."offerType" AS "COMOFFERTYPE",
+			eo."isRewards" AS "LOYALTY",
             eod."comOfferCategory1" AS "COMOFFERIC1",
             prod."partNo" AS "PARTNO",
             prod."description" AS "DESC",
@@ -134,7 +135,7 @@ BEGIN
             ON eo."offerId" = eod."offerId"
             AND eo."offerNumber" = eod."offerNo"
             AND eod."isSkuActive" = TRUE
-		LEFT JOIN "tPriceListDetail" pld ON eod."sku" = pld."sku" and eod."country"=pld."country" and pld."isActive" = TRUE
+		LEFT JOIN "tPriceListDetail" pld ON eod."sku" = pld."sku" and eod."country"=pld."country" and pld."isActive" = TRUE  AND pld."priceList" IN (''050'', ''184'', ''498'', ''499'')
         INNER JOIN "tProducts" prod ON eod."sku" = prod."sku"
         INNER JOIN "tOfferType" ot_type ON eo."OfferTypeId" = ot_type."offerTypeId" and eh."country"=ot_type."country"
         LEFT JOIN offer_totals ot_tot ON eo."offerId" = ot_tot."offerId"
@@ -149,3 +150,5 @@ BEGIN
                                                                                                                       
 END;                                                                                                                                                 
 $BODY$;
+
+

@@ -1,4 +1,4 @@
--- PROCEDURE: public.sp_update_offer_and_sku_details()
+﻿-- PROCEDURE: public.sp_update_offer_and_sku_details()
 
 -- DROP PROCEDURE IF EXISTS public.sp_update_offer_and_sku_details();
 
@@ -341,3 +341,4 @@ EXCEPTION
 
 END;
 $BODY$;
+

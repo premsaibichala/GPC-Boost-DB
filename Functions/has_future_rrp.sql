@@ -1,4 +1,4 @@
- -- FUNCTION: public.has_future_rrp(integer)
+﻿ -- FUNCTION: public.has_future_rrp(integer)
  
 -- DROP FUNCTION IF EXISTS public.has_future_rrp(integer);
  
@@ -20,3 +20,4 @@ BEGIN
     );
 END;
 $BODY$;
+

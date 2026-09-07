@@ -1,4 +1,4 @@
--- PROCEDURE: public.sp_update_lecost_natavgcost(integer, integer)
+﻿-- PROCEDURE: public.sp_update_lecost_natavgcost(integer, integer)
 
 -- DROP PROCEDURE IF EXISTS public.sp_update_lecost_natavgcost(integer, integer);
 
@@ -556,3 +556,4 @@ BEGIN
  
 END;
 $BODY$;
+

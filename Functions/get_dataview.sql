@@ -1,4 +1,4 @@
--- FUNCTION: public.get_dataview(integer, integer, text[], text[], text[], text[], boolean, boolean, boolean, boolean, integer, integer)
+﻿-- FUNCTION: public.get_dataview(integer, integer, text[], text[], text[], text[], boolean, boolean, boolean, boolean, integer, integer)
 
 DROP FUNCTION IF EXISTS public.get_dataview(integer, integer, text[], text[], text[], text[], boolean, boolean, boolean, boolean, integer, integer);
 
@@ -310,3 +310,35 @@ LIMIT ' || p_page_size || ';
 
 END;
 $BODY$;
+
+ALTER TABLE public."tEventOfferDetail"
+ADD COLUMN IF NOT EXISTS "purchasePrice" numeric(19,5);
+
+ALTER TABLE public."tEventOfferDetail"
+ADD COLUMN IF NOT EXISTS "isFromPriceOverridden" BOOLEAN;
+
+ALTER TABLE public."tEventOfferDetail"
+ADD COLUMN IF NOT EXISTS "futureEdPrice" numeric(19,5);
+
+ALTER TABLE public."tEventOfferDetail"
+ADD COLUMN IF NOT EXISTS "futureEdEffectiveDate" date;
+
+ALTER TABLE IF EXISTS public."tPriceProductRules" DROP CONSTRAINT IF EXISTS uk_tpriceproductrules;
+
+ALTER TABLE IF EXISTS public."tPriceProductRules" DROP CONSTRAINT IF EXISTS pk_tpriceproductrules;
+
+ALTER TABLE IF EXISTS public."tPriceProductRules"
+ADD CONSTRAINT "pk_tpriceproductrules"
+PRIMARY KEY ("country", "supplierId", "sku", "company", "startDate");
+
+ALTER TABLE IF EXISTS public."tPriceListDetail" DROP CONSTRAINT IF EXISTS pk_tpricelistdetail;
+
+ALTER TABLE IF EXISTS public."tPriceListDetail"
+    ADD CONSTRAINT pk_tpricelistdetail PRIMARY KEY (company, "priceList", sku, "startDate");
+
+
+ALTER TABLE IF EXISTS public."tPriceListDetail" DROP CONSTRAINT IF EXISTS uk_tpricelistdetail;
+
+ALTER TABLE IF EXISTS public."tPriceListDetail"
+    ADD CONSTRAINT uk_tpricelistdetail UNIQUE (company, country, "priceList", sku, "startDate");
+

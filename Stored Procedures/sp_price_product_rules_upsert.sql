@@ -1,4 +1,4 @@
--- PROCEDURE: public.sp_price_product_rules_upsert()
+﻿-- PROCEDURE: public.sp_price_product_rules_upsert()
 
 -- DROP PROCEDURE IF EXISTS public.sp_price_product_rules_upsert();
 
@@ -552,3 +552,4 @@ AS $BODY$
   END;
 
 $BODY$;
+

@@ -1,4 +1,4 @@
--- PROCEDURE: public.sp_update_event_offer_detail_header(integer, integer, integer, numeric, numeric, numeric, numeric, numeric, integer)
+﻿-- PROCEDURE: public.sp_update_event_offer_detail_header(integer, integer, integer, numeric, numeric, numeric, numeric, numeric, integer)
 
 -- DROP PROCEDURE IF EXISTS public.sp_update_event_offer_detail_header(integer, integer, integer, numeric, numeric, numeric, numeric, numeric, integer);
 
@@ -3030,3 +3030,4 @@ WHERE o."offerId" = s."offerId"
 END IF;
 END;
 $BODY$;
+

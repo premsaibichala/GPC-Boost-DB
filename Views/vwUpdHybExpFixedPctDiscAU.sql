@@ -1,4 +1,4 @@
--- View: public.vwUpdHybExpFixedPctDiscAU
+﻿-- View: public.vwUpdHybExpFixedPctDiscAU
 
 -- DROP VIEW public."vwUpdHybExpFixedPctDiscAU";
 
@@ -384,3 +384,6 @@ CREATE OR REPLACE VIEW public."vwUpdHybExpFixedPctDiscAU"
     "SHOW_PRICE_STRIKE_THROUGH",
     "SALE_KEYWORDS"
    FROM final_rows;
+
+
+
