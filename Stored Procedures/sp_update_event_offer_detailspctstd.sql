@@ -1010,6 +1010,17 @@ RAISE NOTICE '[%] END   UPDATE tEventOffer | offerType=STD Range Price | offerTy
       --AND COALESCE(d."isSkuActive", TRUE) = TRUE
       AND (d."clearanceIndicator" <> 'Y' OR d."clearanceIndicator" IS NULL)
       AND d."isSkuActive" = TRUE
+      AND (
+            NOT EXISTS (
+                SELECT 1
+                FROM public."tEventOfferDetail" d2
+                WHERE d2."offerId" = o."offerId"
+                  AND d2."offerNo" = o."offerNumber"
+                  AND d2."isSkuActive" = TRUE
+                  AND d2."fromPriceIndicator" = TRUE
+            )
+            OR d."fromPriceIndicator" = TRUE
+          )
     GROUP BY d."offerId", d."eventId", d."offerNo", d."clearanceIndicator", d."gst"
 )
 UPDATE public."tEventOffer" AS o

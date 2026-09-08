@@ -1482,6 +1482,17 @@ RAISE NOTICE '[%] END   UPDATE tEventOffer | offerType=MultiBuy SKU List | offer
     WHERE ev."status" IN ('Open', 'Locked')
       AND (o."OfferTypeId" IN (23))
       AND d."isSkuActive" = TRUE
+      AND (
+            NOT EXISTS (
+                SELECT 1
+                FROM public."tEventOfferDetail" d2
+                WHERE d2."offerId" = o."offerId"
+                  AND d2."offerNo" = o."offerNumber"
+                  AND d2."isSkuActive" = TRUE
+                  AND d2."fromPriceIndicator" = TRUE
+            )
+            OR d."fromPriceIndicator" = TRUE
+          )
     GROUP BY d."offerId", d."eventId",d."gst"
 )
 UPDATE public."tEventOffer" AS o

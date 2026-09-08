@@ -578,6 +578,17 @@ END,
       AND (d."clearanceIndicator" <> 'Y' OR d."clearanceIndicator" IS NULL)
        AND d."isSkuActive" = TRUE
       AND ev."status" IN ('Open', 'Locked')
+      AND (
+            NOT EXISTS (
+                SELECT 1
+                FROM public."tEventOfferDetail" d2
+                WHERE d2."offerId" = p_offer_id
+                  AND d2."offerNo" = p_offer_no
+                  AND d2."isSkuActive" = TRUE
+                  AND d2."fromPriceIndicator" = TRUE
+            )
+            OR d."fromPriceIndicator" = TRUE
+          )
     GROUP BY d."offerId", d."eventId", d."offerNo", d."clearanceIndicator"
 )
 UPDATE public."tEventOffer" AS o
@@ -2992,6 +3003,17 @@ END IF;
       AND d."offerId" = p_offer_id
        AND d."isSkuActive" = TRUE
       AND ev."status" IN ('Open', 'Locked')
+      AND (
+            NOT EXISTS (
+                SELECT 1
+                FROM public."tEventOfferDetail" d2
+                WHERE d2."offerId" = p_offer_id
+                  AND d2."offerNo" = p_offer_no
+                  AND d2."isSkuActive" = TRUE
+                  AND d2."fromPriceIndicator" = TRUE
+            )
+            OR d."fromPriceIndicator" = TRUE
+          )
     GROUP BY d."offerId", d."eventId", v_gst, d."offerNo"
 )
 UPDATE public."tEventOffer" AS o
