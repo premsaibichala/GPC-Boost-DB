@@ -248,18 +248,22 @@ BEGIN
     INTO v_display_offer_ids
     FROM "tEventOfferDetail" eod
     JOIN "tEventOffer" eo ON eo."offerId" = eod."offerId"
+    JOIN "tEvent" ev ON ev."eventId" = eo."eventId"
     WHERE eod."isSkuActive" = FALSE
       AND eo."isOfferActive" = TRUE
-      AND eod."displayIndicator" = TRUE;
+      AND eod."displayIndicator" = TRUE
+      AND ev."status" IN ('Open', 'Locked');
  
     -- Offers with an inactive SKU still flagged fromPriceIndicator = TRUE
     SELECT ARRAY_AGG(DISTINCT eod."offerId")
     INTO v_fromprice_offer_ids
     FROM "tEventOfferDetail" eod
     JOIN "tEventOffer" eo ON eo."offerId" = eod."offerId"
+    JOIN "tEvent" ev ON ev."eventId" = eo."eventId"
     WHERE eod."isSkuActive" = FALSE
       AND eo."isOfferActive" = TRUE
-      AND eod."fromPriceIndicator" = TRUE;
+      AND eod."fromPriceIndicator" = TRUE
+      AND ev."status" IN ('Open', 'Locked');
  
     RAISE NOTICE 'Started clearing displayIndicator for inactive SKUs at: %', clock_timestamp();
     IF v_display_offer_ids IS NOT NULL THEN
@@ -305,8 +309,15 @@ BEGIN
                   AND eod."sku" = ANY (STRING_TO_ARRAY(v_from_price.skus, ','));
  
                 UPDATE "tEventOffer" eo
-                SET "fromPrice" = TRUE
+                SET "fromPrice" = TRUE,
+                "advertisdPriceGst" = v_from_price.advprice
                 WHERE eo."offerId" = v_offer_rec.offer_id;
+
+                UPDATE "tMudMapDetail" mmd
+                SET "fromPrice" = TRUE,
+                "advertisedPrice" = v_from_price.advprice
+                WHERE mmd."eventOfferId" = v_offer_rec.offer_id;
+                
             ELSE
                 UPDATE "tEventOffer" eo
                 SET "fromPrice" = FALSE
