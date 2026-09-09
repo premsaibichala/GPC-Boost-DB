@@ -325,7 +325,6 @@ BEGIN
             eoh."offerType",
             eoh."OfferTypeId",
             eoh."spacePurchase",
-            p."clearance",
             rag."G0",
             rag."G1",
             rag."G2",
@@ -348,6 +347,53 @@ BEGIN
 
             pp.clearance_price_050,
             pp.priceList184,
+            pp.priceList499,
+            pp.priceList498,
+            CASE
+                WHEN eh."country" = 'AU' THEN
+                    CASE
+                        WHEN pp.clearance_price_050 IS NOT NULL
+                             AND pp.priceList184 IS NOT NULL
+                        THEN
+                            CASE
+                                WHEN pp.clearance_price_050 <= pp.priceList184
+                                    THEN 'Clearance'
+                                WHEN pp.clearance_price_050 > pp.priceList184
+                                    THEN 'Mgr Special'
+                            END
+
+                        WHEN pp.clearance_price_050 IS NOT NULL
+                            THEN 'Clearance'
+
+                        WHEN pp.priceList184 IS NOT NULL
+                            THEN 'Mgr Special'
+
+                        ELSE 'N'
+                    END
+
+                WHEN eh."country" = 'NZ' THEN
+                    CASE
+                        WHEN pp.priceList499 IS NOT NULL
+                             AND pp.priceList498 IS NOT NULL
+                        THEN
+                            CASE
+                                WHEN pp.priceList499 > pp.priceList498
+                                    THEN 'Mgr Special'
+                                WHEN pp.priceList499 <= pp.priceList498
+                                    THEN 'Clearance'
+                            END
+
+                        WHEN pp.priceList499 IS NOT NULL
+                            THEN 'Clearance'
+
+                        WHEN pp.priceList498 IS NOT NULL
+                            THEN 'Mgr Special'
+
+                        ELSE 'N'
+                    END
+
+                ELSE 'N'
+            END AS clearance,
             pp.au_primary_price,
             pp.au_fallback_price_036,
             pp.nz_primary_price,
@@ -516,10 +562,10 @@ BEGIN
         SELECT
             d.*,
             d.base_rrp_price AS new_everydayPriceGst,
-            CASE WHEN d."clearance" = 'Y' THEN d.base_rrp_price
+            CASE WHEN d.clearance NOT LIKE 'N' THEN d.base_rrp_price
                  ELSE ROUND(d."advertisedPriceGst",2)
             END AS new_advertisedPriceGst,
-            CASE WHEN d."clearance" = 'Y' THEN ROUND(d.base_rrp_price / (1 + COALESCE(d.gst_value, 0)),2)
+            CASE WHEN d.clearance NOT LIKE 'N' THEN ROUND(d.base_rrp_price / (1 + COALESCE(d.gst_value, 0)),2)
                  ELSE ROUND(d."advertisedPriceGst" / (1 + COALESCE(d.gst_value, 0)),2)
             END AS new_advertisedPrice,
             ROUND(d."nationalAvgCost",2) as natAvgCost
@@ -532,7 +578,7 @@ BEGIN
         "everydayPrice" = Round(c.new_everydayPriceGst / (1 + COALESCE(c.gst_value, 0)),2),
         "everydayPriceGst" = c.new_everydayPriceGst,
         "everydayPriceGstSys" = c.new_everydayPriceGst,
-        "clearanceIndicator" = CASE WHEN c."clearance" IS NULL OR TRIM(c."clearance") = '' THEN 'N' ELSE c."clearance" END,
+        "clearanceIndicator" = c.clearance,
         "advertisedPriceGst" = c.new_advertisedPriceGst,
         "advertisedPrice" = c.new_advertisedPrice,
          "calculatedSaveValue"=Round(c.new_everydayPriceGst-c.new_advertisedPriceGst,2),
@@ -604,7 +650,6 @@ END,
             eod."offerId",
             eoh."offerType",
             eoh."OfferTypeId",
-            p."clearance",
             eoh."spacePurchase",
             rag."G0",
             rag."G1",
@@ -626,6 +671,53 @@ END,
 
             pp.clearance_price_050,
             pp.priceList184,
+            pp.priceList499,
+            pp.priceList498,
+            CASE
+                WHEN eh."country" = 'AU' THEN
+                    CASE
+                        WHEN pp.clearance_price_050 IS NOT NULL
+                             AND pp.priceList184 IS NOT NULL
+                        THEN
+                            CASE
+                                WHEN pp.clearance_price_050 <= pp.priceList184
+                                    THEN 'Clearance'
+                                WHEN pp.clearance_price_050 > pp.priceList184
+                                    THEN 'Mgr Special'
+                            END
+
+                        WHEN pp.clearance_price_050 IS NOT NULL
+                            THEN 'Clearance'
+
+                        WHEN pp.priceList184 IS NOT NULL
+                            THEN 'Mgr Special'
+
+                        ELSE 'N'
+                    END
+
+                WHEN eh."country" = 'NZ' THEN
+                    CASE
+                        WHEN pp.priceList499 IS NOT NULL
+                             AND pp.priceList498 IS NOT NULL
+                        THEN
+                            CASE
+                                WHEN pp.priceList499 > pp.priceList498
+                                    THEN 'Mgr Special'
+                                WHEN pp.priceList499 <= pp.priceList498
+                                    THEN 'Clearance'
+                            END
+
+                        WHEN pp.priceList499 IS NOT NULL
+                            THEN 'Clearance'
+
+                        WHEN pp.priceList498 IS NOT NULL
+                            THEN 'Mgr Special'
+
+                        ELSE 'N'
+                    END
+
+                ELSE 'N'
+            END AS clearance,
             pp.au_primary_price,
             pp.au_fallback_price_036,
             pp.nz_primary_price,
@@ -803,7 +895,7 @@ END,
         "everydayPrice" = Round(c.new_everydayPriceGst / (1 + COALESCE(c.gst_value, 0)),2),
         "everydayPriceGst" = c.new_everydayPriceGst,
         "advertisedPriceGst" = c.new_everydayPriceGst,
-        "clearanceIndicator" = CASE WHEN c."clearance" IS NULL OR TRIM(c."clearance") = '' THEN 'N' ELSE c."clearance" END,
+        "clearanceIndicator" = c.clearance,
         "advertisedPrice" = Round(c.new_everydayPriceGst / (1 + COALESCE(c.gst_value, 0)),2),
         "everydayPriceGstSys" = c.new_everydayPriceGst,
         "calculatedSaveValue"=0,
@@ -872,7 +964,6 @@ END,
             eod."offerId",
             eoh."offerType",
             eoh."OfferTypeId",
-            p."clearance",
             rag."G0",
             rag."G1",
             rag."G2",
@@ -895,6 +986,53 @@ END,
 
             pp.clearance_price_050,
             pp.priceList184,
+            pp.priceList499,
+            pp.priceList498,
+            CASE
+                WHEN eh."country" = 'AU' THEN
+                    CASE
+                        WHEN pp.clearance_price_050 IS NOT NULL
+                             AND pp.priceList184 IS NOT NULL
+                        THEN
+                            CASE
+                                WHEN pp.clearance_price_050 <= pp.priceList184
+                                    THEN 'Clearance'
+                                WHEN pp.clearance_price_050 > pp.priceList184
+                                    THEN 'Mgr Special'
+                            END
+
+                        WHEN pp.clearance_price_050 IS NOT NULL
+                            THEN 'Clearance'
+
+                        WHEN pp.priceList184 IS NOT NULL
+                            THEN 'Mgr Special'
+
+                        ELSE 'N'
+                    END
+
+                WHEN eh."country" = 'NZ' THEN
+                    CASE
+                        WHEN pp.priceList499 IS NOT NULL
+                             AND pp.priceList498 IS NOT NULL
+                        THEN
+                            CASE
+                                WHEN pp.priceList499 > pp.priceList498
+                                    THEN 'Mgr Special'
+                                WHEN pp.priceList499 <= pp.priceList498
+                                    THEN 'Clearance'
+                            END
+
+                        WHEN pp.priceList499 IS NOT NULL
+                            THEN 'Clearance'
+
+                        WHEN pp.priceList498 IS NOT NULL
+                            THEN 'Mgr Special'
+
+                        ELSE 'N'
+                    END
+
+                ELSE 'N'
+            END AS clearance,
             pp.au_primary_price,
             pp.au_fallback_price_036,
             pp.nz_primary_price,
@@ -1062,10 +1200,10 @@ END,
         SELECT
             d.*,
             d.base_rrp_price AS new_everydayPriceGst,
-            CASE WHEN d."clearance" = 'Y' THEN d.base_rrp_price
+            CASE WHEN d.clearance NOT LIKE 'N' THEN d.base_rrp_price
                  ELSE ROUND(d."advertisedPriceGst",2)
             END AS new_advertisedPriceGst,
-            CASE WHEN d."clearance" = 'Y' THEN ROUND(d.base_rrp_price / (1 + COALESCE(d.gst_value, 0)),2)
+            CASE WHEN d.clearance NOT LIKE 'N' THEN ROUND(d.base_rrp_price / (1 + COALESCE(d.gst_value, 0)),2)
                  ELSE ROUND(d."advertisedPriceGst" / (1 + COALESCE(d.gst_value, 0)),2)
             END AS new_advertisedPrice,
             ROUND(d."nationalAvgCost",2) as natAvgCost
@@ -1087,7 +1225,7 @@ END,
         "incrementalForecast"=e."categoryforecast"-ROUND(c.calc_units),
         "nationalAverageCost" = COALESCE(c.natAvgCost, 0),
          "forecastTradeMargin$" = ROUND((c.new_advertisedPrice - ROUND(COALESCE(c."vendorCostPerEach",0),2)) * e."categoryforecast",2),
-        "clearanceIndicator" = CASE WHEN c."clearance" IS NULL OR TRIM(c."clearance") = '' THEN 'N' ELSE c."clearance" END,
+        "clearanceIndicator" = c.clearance,
         "stockOnHandStore" = c.sohStore,
         "stockOnHandDC"    = c.sohDc,
         "LatestEffectiveCost" = ROUND(COALESCE(c."vendorCostPerEach",0),2),
@@ -1203,7 +1341,7 @@ SET
     "everydayPriceGst"      = ROUND(s."everydayPriceGst", 2),
     "everydayPrice"      = ROUND(s."everydayPrice", 2),
     "savePercent" = ROUND(s."savePercent", 2),
-    "isClearance" = CASE WHEN s."clearanceIndicator" = 'Y' THEN true ELSE false END,
+    "isClearance" = CASE WHEN s."clearanceIndicator" NOT LIKE 'N' THEN true ELSE false END,
     -- Supplier income (derived)
     "totalSupplierIncome"   = s."totalScanSupport$" + s."totalScanSupport%" + COALESCE(o."spacePurchase", 0)
 FROM EventOfferDtlSummaryForLP_BXGX s
@@ -1288,7 +1426,7 @@ SET
     "everydayPriceGst"      = ROUND(s."everydayPriceGst", 2),
     "everydayPrice"      = ROUND(s."everydayPrice", 2),
     "savePercent" = ROUND(s."savePercent", 2),
-    "isClearance" = CASE WHEN s."clearanceIndicator" = 'Y' THEN true ELSE false END,
+    "isClearance" = CASE WHEN s."clearanceIndicator" NOT LIKE 'N' THEN true ELSE false END,
     -- Supplier income (derived)
     "totalSupplierIncome"   = s."totalScanSupport$" + s."totalScanSupport%" + COALESCE(o."spacePurchase", 0)
 FROM EventOfferDtlSummaryForPriceOnly s

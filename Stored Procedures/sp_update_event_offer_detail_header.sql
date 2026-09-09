@@ -210,7 +210,51 @@ BEGIN
             eod."offerId",
             eoh."offerType",
             eoh."OfferTypeId",
-            p."clearance",
+            CASE
+                WHEN eh."country" = 'AU' THEN
+                    CASE
+                        WHEN pp.priceList50 IS NOT NULL
+                             AND pp.priceList184 IS NOT NULL
+                        THEN
+                            CASE
+                                WHEN pp.priceList50 <= pp.priceList184
+                                    THEN 'Clearance'
+                                WHEN pp.priceList50 > pp.priceList184
+                                    THEN 'Mgr Special'
+                            END
+
+                        WHEN pp.priceList50 IS NOT NULL
+                            THEN 'Clearance'
+
+                        WHEN pp.priceList184 IS NOT NULL
+                            THEN 'Mgr Special'
+
+                        ELSE 'N'
+                    END
+
+                WHEN eh."country" = 'NZ' THEN
+                    CASE
+                        WHEN pp.priceList499 IS NOT NULL
+                             AND pp.priceList498 IS NOT NULL
+                        THEN
+                            CASE
+                                WHEN pp.priceList499 > pp.priceList498
+                                    THEN 'Mgr Special'
+                                WHEN pp.priceList499 <= pp.priceList498
+                                    THEN 'Clearance'
+                            END
+
+                        WHEN pp.priceList499 IS NOT NULL
+                            THEN 'Clearance'
+
+                        WHEN pp.priceList498 IS NOT NULL
+                            THEN 'Mgr Special'
+
+                        ELSE 'N'
+                    END
+
+                ELSE 'N'
+            END AS "clearanceIndicator",
             eoh."savePercent",
             rag."G0", rag."G1", rag."G2", rag."G3", rag."G4", rag."G5",
             (COALESCE(s."averageMonthlySales", 0) / 30.0) *
@@ -300,7 +344,6 @@ BEGIN
             rag."G0", rag."G1", rag."G2", rag."G3", rag."G4", rag."G5",
             eoh."savePercent", eod."everydayUnits", s."averageMonthlySales",
             eod."categoryforecast",
-            p."clearance",
             eod."isCategoryForecastLocked",
             eoh."OfferTypeId",
             p."isActive",
@@ -471,12 +514,12 @@ BEGIN
                 ELSE d."categoryforecast"
             END AS categoryFcst,
             CASE
-                WHEN d."clearance" = 'Y'
+                WHEN d."clearanceIndicator" NOT LIKE 'N'
                 THEN d.base_rrp_price
                 ELSE ROUND(d.base_rrp_price - (d.base_rrp_price * d."savePercent"/100),2)
             END AS new_advertisedPriceGst,
             CASE
-                WHEN d."clearance" = 'Y'
+                WHEN d."clearanceIndicator" NOT LIKE 'N'
                 THEN ROUND(d.base_rrp_price / (1+ COALESCE(d.gst_value,0)),2)
                 ELSE ROUND((d.base_rrp_price - (d.base_rrp_price * d."savePercent"/100)) / (1+COALESCE(d.gst_value,0)),2)
             END AS new_advertisedPrice
@@ -496,7 +539,7 @@ BEGIN
     WHEN c.new_everydayPriceGst > 0 THEN ROUND(((c.new_everydayPriceGst - c.new_advertisedPriceGst) / c.new_everydayPriceGst)* 100, 2)
     ELSE 0
 END,
-"clearanceIndicator" = CASE WHEN c."clearance" IS NULL OR TRIM(c."clearance") = '' THEN 'N' ELSE c."clearance" END,
+"clearanceIndicator" = c."clearanceIndicator",
         "futureEdPrice" = c.future_rrp_price,
         "futureEdEffectiveDate" = c.future_rrp_effective_date,
         "categoryforecast" = c.categoryFcst ,
@@ -575,7 +618,7 @@ END,
     WHERE  (o."OfferTypeId" IN (6))
       AND d."offerNo" = p_offer_no
       AND d."offerId" = p_offer_id
-      AND (d."clearanceIndicator" <> 'Y' OR d."clearanceIndicator" IS NULL)
+      AND (d."clearanceIndicator" IS NULL OR d."clearanceIndicator" LIKE 'N')
        AND d."isSkuActive" = TRUE
       AND ev."status" IN ('Open', 'Locked')
       AND (
@@ -814,7 +857,51 @@ WHERE o."offerId" = s."offerId"
             eod."offerId",
             eoh."offerType",
             eoh."OfferTypeId",
-            p."clearance",
+            CASE
+                WHEN eh."country" = 'AU' THEN
+                    CASE
+                        WHEN pp.priceList50 IS NOT NULL
+                             AND pp.priceList184 IS NOT NULL
+                        THEN
+                            CASE
+                                WHEN pp.priceList50 <= pp.priceList184
+                                    THEN 'Clearance'
+                                WHEN pp.priceList50 > pp.priceList184
+                                    THEN 'Mgr Special'
+                            END
+
+                        WHEN pp.priceList50 IS NOT NULL
+                            THEN 'Clearance'
+
+                        WHEN pp.priceList184 IS NOT NULL
+                            THEN 'Mgr Special'
+
+                        ELSE 'N'
+                    END
+
+                WHEN eh."country" = 'NZ' THEN
+                    CASE
+                        WHEN pp.priceList499 IS NOT NULL
+                             AND pp.priceList498 IS NOT NULL
+                        THEN
+                            CASE
+                                WHEN pp.priceList499 > pp.priceList498
+                                    THEN 'Mgr Special'
+                                WHEN pp.priceList499 <= pp.priceList498
+                                    THEN 'Clearance'
+                            END
+
+                        WHEN pp.priceList499 IS NOT NULL
+                            THEN 'Clearance'
+
+                        WHEN pp.priceList498 IS NOT NULL
+                            THEN 'Mgr Special'
+
+                        ELSE 'N'
+                    END
+
+                ELSE 'N'
+            END AS "clearanceIndicator",
             rag."G0",
             rag."G1",
             rag."G2",
@@ -910,7 +997,7 @@ WHERE o."offerId" = s."offerId"
             ppr."pricePoint6IncludingGst",
             future_ppr."pricePoint6IncludingGst",
             future_ppr."startDate",
-            p."vendorCostPerEach", p."nationalAvgCost", p."clearance",
+            p."vendorCostPerEach", p."nationalAvgCost",
             eoh."incrementalPercentage", rag."G0",
             rag."G1",
             rag."G2",
@@ -1088,9 +1175,9 @@ WHERE o."offerId" = s."offerId"
             WHEN d."isCategoryForecastLocked" = FALSE
             THEN CAST(ROUND((d."incrementalPercentage"::numeric / 100)* ROUND(d.calc_units)::numeric) AS integer)
             ELSE d."categoryforecast" END as categoryFcst,
-            CASE WHEN d."clearance" = 'Y' THEN d.base_rrp_price
+            CASE WHEN d."clearanceIndicator" NOT LIKE 'N' THEN d.base_rrp_price
             ELSE p_advertised_price_gst END AS new_advertisedPriceGst,
-            CASE WHEN d."clearance" = 'Y' THEN ROUND(d.base_rrp_price/(1+ COALESCE(d.gst_value, 0)),2)
+            CASE WHEN d."clearanceIndicator" NOT LIKE 'N' THEN ROUND(d.base_rrp_price/(1+ COALESCE(d.gst_value, 0)),2)
             ELSE ROUND((p_advertised_price_gst)/(1+ COALESCE(d.gst_value, 0)),2) END AS new_advertisedPrice,
             ROUND(d."nationalAvgCost",2) as natAvgCost
         FROM "baseRrpCalculation_STDRangePriceResolved" d
@@ -1115,7 +1202,7 @@ END,
         "forecastSales"=Round(c.categoryFcst*ROUND(c.new_advertisedPriceGst,2),2) ,
         "incrementalForecast"=(c.categoryFcst-ROUND(c.calc_units)) ,
         "nationalAverageCost" = COALESCE(c.natAvgCost, 0) ,
-        "clearanceIndicator" = CASE WHEN c."clearance" IS NULL OR TRIM(c."clearance") = '' THEN 'N' ELSE c."clearance" END,
+        "clearanceIndicator" = c."clearanceIndicator",
          "forecastTradeMargin$" = ROUND((c.new_advertisedPrice - ROUND(COALESCE(c."vendorCostPerEach",0),2)) * c.categoryFcst,2) ,
         "stockOnHandStore" = c.sohStore ,
         "stockOnHandDC"    = c.sohDc ,
@@ -1252,7 +1339,7 @@ WHERE o."offerId" = s."offerId"
     WHERE  (o."OfferTypeId" IN (14))
       AND d."offerNo" = p_offer_no
       AND d."offerId" = p_offer_id
-      AND (d."clearanceIndicator" <> 'Y' OR d."clearanceIndicator" IS NULL)
+      AND (d."clearanceIndicator" IS NULL OR d."clearanceIndicator" LIKE 'N')
        AND d."isSkuActive" = TRUE
       AND ev."status" IN ('Open', 'Locked')
     GROUP BY d."offerId", d."eventId",  d."clearanceIndicator", d."offerNo"
@@ -1411,7 +1498,51 @@ WHERE o."offerId" = s."offerId"
             eod."offerId",
             eoh."offerType",
             eoh."OfferTypeId",
-            p."clearance",
+            CASE
+                WHEN eh."country" = 'AU' THEN
+                    CASE
+                        WHEN pp.priceList50 IS NOT NULL
+                             AND pp.priceList184 IS NOT NULL
+                        THEN
+                            CASE
+                                WHEN pp.priceList50 <= pp.priceList184
+                                    THEN 'Clearance'
+                                WHEN pp.priceList50 > pp.priceList184
+                                    THEN 'Mgr Special'
+                            END
+
+                        WHEN pp.priceList50 IS NOT NULL
+                            THEN 'Clearance'
+
+                        WHEN pp.priceList184 IS NOT NULL
+                            THEN 'Mgr Special'
+
+                        ELSE 'N'
+                    END
+
+                WHEN eh."country" = 'NZ' THEN
+                    CASE
+                        WHEN pp.priceList499 IS NOT NULL
+                             AND pp.priceList498 IS NOT NULL
+                        THEN
+                            CASE
+                                WHEN pp.priceList499 > pp.priceList498
+                                    THEN 'Mgr Special'
+                                WHEN pp.priceList499 <= pp.priceList498
+                                    THEN 'Clearance'
+                            END
+
+                        WHEN pp.priceList499 IS NOT NULL
+                            THEN 'Clearance'
+
+                        WHEN pp.priceList498 IS NOT NULL
+                            THEN 'Mgr Special'
+
+                        ELSE 'N'
+                    END
+
+                ELSE 'N'
+            END AS "clearanceIndicator",
             rag."G0",
             rag."G1",
             rag."G2",
@@ -1507,7 +1638,7 @@ WHERE o."offerId" = s."offerId"
             ppr."pricePoint6IncludingGst",
             future_ppr."pricePoint6IncludingGst",
             future_ppr."startDate",
-            p."vendorCostPerEach", p."nationalAvgCost", p."clearance",
+            p."vendorCostPerEach", p."nationalAvgCost",
             eoh."incrementalPercentage", rag."G0",
             rag."G1",
             rag."G2",
@@ -1685,9 +1816,9 @@ WHERE o."offerId" = s."offerId"
             WHEN d."isCategoryForecastLocked" = FALSE
             THEN CAST(ROUND((d."incrementalPercentage"::numeric / 100)* ROUND(d.calc_units)::numeric) AS integer)
             ELSE d."categoryforecast" END as categoryFcst,
-            CASE WHEN d."clearance" = 'Y' THEN d.base_rrp_price
+            CASE WHEN d."clearanceIndicator" NOT LIKE 'N' THEN d.base_rrp_price
             ELSE p_advertised_price_gst END AS new_advertisedPriceGst,
-            CASE WHEN d."clearance" = 'Y' THEN ROUND(d.base_rrp_price/(1+ COALESCE(d.gst_value, 0)),2)
+            CASE WHEN d."clearanceIndicator" NOT LIKE 'N' THEN ROUND(d.base_rrp_price/(1+ COALESCE(d.gst_value, 0)),2)
             ELSE ROUND((p_advertised_price_gst)/(1+ COALESCE(d.gst_value, 0)),2) END AS new_advertisedPrice,
             ROUND(d."nationalAvgCost",2) as natAvgCost
         FROM "baseRrpCalculation_ComboListResolved" d
@@ -1711,7 +1842,7 @@ END,
         "forecastSales"=Round(c.categoryFcst*ROUND(c.new_advertisedPriceGst,2),2) ,
         "incrementalForecast"=(c.categoryFcst-ROUND(c.calc_units)) ,
         "nationalAverageCost" = COALESCE(c.natAvgCost, 0) ,
-        "clearanceIndicator" = CASE WHEN c."clearance" IS NULL OR TRIM(c."clearance") = '' THEN 'N' ELSE c."clearance" END,
+        "clearanceIndicator" = c."clearanceIndicator",
          "forecastTradeMargin$" = ROUND((c.new_advertisedPrice - ROUND(COALESCE(c."vendorCostPerEach",0),2)) * c.categoryFcst,2) ,
         "stockOnHandStore" = c.sohStore ,
         "stockOnHandDC"    = c.sohDc ,
@@ -1844,7 +1975,7 @@ WITH EventOfferDtlSummaryForAdvPriceForComboList AS (
 
     WHERE  (o."OfferTypeId" IN (25))
       AND d."offerNo" = p_offer_no
-      AND (d."clearanceIndicator" <> 'Y' OR d."clearanceIndicator" IS NULL)
+      AND (d."clearanceIndicator" IS NULL OR d."clearanceIndicator" LIKE 'N')
       AND d."offerId" = p_offer_id
        AND d."isSkuActive" = TRUE
       AND ev."status" IN ('Open', 'Locked')
@@ -2004,7 +2135,51 @@ WHERE o."offerId" = s."offerId"
             eod."offerId",
             eoh."OfferTypeId",
             eoh."offerType",
-            p."clearance",
+            CASE
+                WHEN eh."country" = 'AU' THEN
+                    CASE
+                        WHEN pp.priceList50 IS NOT NULL
+                             AND pp.priceList184 IS NOT NULL
+                        THEN
+                            CASE
+                                WHEN pp.priceList50 <= pp.priceList184
+                                    THEN 'Clearance'
+                                WHEN pp.priceList50 > pp.priceList184
+                                    THEN 'Mgr Special'
+                            END
+
+                        WHEN pp.priceList50 IS NOT NULL
+                            THEN 'Clearance'
+
+                        WHEN pp.priceList184 IS NOT NULL
+                            THEN 'Mgr Special'
+
+                        ELSE 'N'
+                    END
+
+                WHEN eh."country" = 'NZ' THEN
+                    CASE
+                        WHEN pp.priceList499 IS NOT NULL
+                             AND pp.priceList498 IS NOT NULL
+                        THEN
+                            CASE
+                                WHEN pp.priceList499 > pp.priceList498
+                                    THEN 'Mgr Special'
+                                WHEN pp.priceList499 <= pp.priceList498
+                                    THEN 'Clearance'
+                            END
+
+                        WHEN pp.priceList499 IS NOT NULL
+                            THEN 'Clearance'
+
+                        WHEN pp.priceList498 IS NOT NULL
+                            THEN 'Mgr Special'
+
+                        ELSE 'N'
+                    END
+
+                ELSE 'N'
+            END AS "clearanceIndicator",
             rag."G0",
             rag."G1",
             rag."G2",
@@ -2102,7 +2277,7 @@ WHERE o."offerId" = s."offerId"
             ppr."pricePoint6IncludingGst",
             future_ppr."pricePoint6IncludingGst",
             future_ppr."startDate",
-            p."vendorCostPerEach", p."nationalAvgCost", p."clearance",
+            p."vendorCostPerEach", p."nationalAvgCost",
             eoh."incrementalPercentage",rag."G0",
             rag."G1",
             rag."G2",
@@ -2280,7 +2455,7 @@ WHERE o."offerId" = s."offerId"
             WHEN d."isCategoryForecastLocked" = FALSE
             THEN CAST(ROUND((d."incrementalPercentage"::numeric / 100)* ROUND(d.calc_units)::numeric) AS integer)
             ELSE d."categoryforecast" END as categoryFcst,
-            CASE WHEN d."clearance" = 'Y' THEN d.base_rrp_price
+            CASE WHEN d."clearanceIndicator" NOT LIKE 'N' THEN d.base_rrp_price
             ELSE
                 CASE
                     WHEN p_required_qty <> 0 THEN
@@ -2289,7 +2464,7 @@ WHERE o."offerId" = s."offerId"
                 END
             END AS new_advertisedPriceGst,
             CASE
-                WHEN d."clearance" = 'Y' THEN
+                WHEN d."clearanceIndicator" NOT LIKE 'N' THEN
                     ROUND(d.base_rrp_price / (1 + COALESCE(d.gst_value, 0)),2)
 
                 ELSE
@@ -2323,7 +2498,7 @@ END,
         "categoryforecast" = c.categoryFcst ,
         "incrementalForecast"=(c.categoryFcst-ROUND(c.calc_units)) ,
         "nationalAverageCost" = COALESCE(c.natAvgCost, 0) ,
-        "clearanceIndicator" = CASE WHEN c."clearance" IS NULL OR TRIM(c."clearance") = '' THEN 'N' ELSE c."clearance" END,
+        "clearanceIndicator" = c."clearanceIndicator",
         "forecastTradeMargin$" = ROUND((c.new_advertisedPrice - ROUND(COALESCE(c."vendorCostPerEach",0),2)) * c.categoryFcst,2) ,
         "stockOnHandStore" = c.sohStore ,
         "stockOnHandDC"    = c.sohDc ,
@@ -2458,7 +2633,7 @@ WHERE o."offerId" = s."offerId"
     WHERE  (o."OfferTypeId" IN (15))
       AND d."offerNo" = p_offer_no
       AND d."offerId" = p_offer_id
-     AND (d."clearanceIndicator" <> 'Y' OR d."clearanceIndicator" IS NULL)
+     AND (d."clearanceIndicator" IS NULL OR d."clearanceIndicator" LIKE 'N')
       AND d."isSkuActive" = TRUE
       AND ev."status" IN ('Open', 'Locked')
     GROUP BY d."offerId", d."eventId", d."clearanceIndicator", d."offerNo"
@@ -2617,7 +2792,51 @@ END IF;
             eod."offerId",
             eoh."offerType",
             eoh."OfferTypeId",
-            p."clearance",
+            CASE
+                WHEN eh."country" = 'AU' THEN
+                    CASE
+                        WHEN pp.priceList50 IS NOT NULL
+                             AND pp.priceList184 IS NOT NULL
+                        THEN
+                            CASE
+                                WHEN pp.priceList50 <= pp.priceList184
+                                    THEN 'Clearance'
+                                WHEN pp.priceList50 > pp.priceList184
+                                    THEN 'Mgr Special'
+                            END
+
+                        WHEN pp.priceList50 IS NOT NULL
+                            THEN 'Clearance'
+
+                        WHEN pp.priceList184 IS NOT NULL
+                            THEN 'Mgr Special'
+
+                        ELSE 'N'
+                    END
+
+                WHEN eh."country" = 'NZ' THEN
+                    CASE
+                        WHEN pp.priceList499 IS NOT NULL
+                             AND pp.priceList498 IS NOT NULL
+                        THEN
+                            CASE
+                                WHEN pp.priceList499 > pp.priceList498
+                                    THEN 'Mgr Special'
+                                WHEN pp.priceList499 <= pp.priceList498
+                                    THEN 'Clearance'
+                            END
+
+                        WHEN pp.priceList499 IS NOT NULL
+                            THEN 'Clearance'
+
+                        WHEN pp.priceList498 IS NOT NULL
+                            THEN 'Mgr Special'
+
+                        ELSE 'N'
+                    END
+
+                ELSE 'N'
+            END AS "clearanceIndicator",
             rag."G0",
             rag."G1",
             rag."G2",
@@ -2713,7 +2932,7 @@ END IF;
             ppr."pricePoint6IncludingGst",
             future_ppr."pricePoint6IncludingGst",
             future_ppr."startDate",
-            p."vendorCostPerEach", p."nationalAvgCost", p."clearance",
+            p."vendorCostPerEach", p."nationalAvgCost",
             eoh."incrementalPercentage",rag."G0",
             rag."G1",
             rag."G2",
@@ -2912,7 +3131,7 @@ END IF;
         "forecastSales"=Round(c.categoryFcst*ROUND(c.new_everydayPriceGst,2),2) ,
         "incrementalForecast"=(c.categoryFcst-ROUND(c.calc_units)) ,
         "nationalAverageCost" = COALESCE(c.natAvgCost, 0) ,
-        "clearanceIndicator" = CASE WHEN c."clearance" IS NULL OR TRIM(c."clearance") = '' THEN 'N' ELSE c."clearance" END,
+        "clearanceIndicator" = c."clearanceIndicator",
           "forecastTradeMargin$" = ROUND((c.new_everydayPriceExGst - ROUND(COALESCE(c."vendorCostPerEach",0),2)) * c.categoryFcst,2) ,
         "stockOnHandStore" = c.sohStore ,
         "stockOnHandDC"    = c.sohDc ,
@@ -3052,4 +3271,3 @@ WHERE o."offerId" = s."offerId"
 END IF;
 END;
 $BODY$;
-

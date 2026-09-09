@@ -201,7 +201,51 @@ BEGIN
             p."vendorCostPerEach",
             p."nationalAvgCost",
             p."isActive",
-            p."clearance",
+            CASE
+                WHEN eh."country" = 'AU' THEN
+                    CASE
+                        WHEN pp.priceList50 IS NOT NULL
+                             AND pp.priceList184 IS NOT NULL
+                        THEN
+                            CASE
+                                WHEN pp.priceList50 <= pp.priceList184
+                                    THEN 'Clearance'
+                                WHEN pp.priceList50 > pp.priceList184
+                                    THEN 'Mgr Special'
+                            END
+
+                        WHEN pp.priceList50 IS NOT NULL
+                            THEN 'Clearance'
+
+                        WHEN pp.priceList184 IS NOT NULL
+                            THEN 'Mgr Special'
+
+                        ELSE 'N'
+                    END
+
+                WHEN eh."country" = 'NZ' THEN
+                    CASE
+                        WHEN pp.priceList499 IS NOT NULL
+                             AND pp.priceList498 IS NOT NULL
+                        THEN
+                            CASE
+                                WHEN pp.priceList499 > pp.priceList498
+                                    THEN 'Mgr Special'
+                                WHEN pp.priceList499 <= pp.priceList498
+                                    THEN 'Clearance'
+                            END
+
+                        WHEN pp.priceList499 IS NOT NULL
+                            THEN 'Clearance'
+
+                        WHEN pp.priceList498 IS NOT NULL
+                            THEN 'Mgr Special'
+
+                        ELSE 'N'
+                    END
+
+                ELSE 'N'
+            END AS clearance,
             eh."country",
             COALESCE(SUM(CASE WHEN UPPER(inv."locationType") = 'STORE' THEN inv."onHand" END), 0) AS sohStore,
             COALESCE(SUM(CASE WHEN UPPER(inv."locationType") <> 'STORE' THEN inv."onHand" END), 0) AS sohDc,
@@ -275,7 +319,6 @@ BEGIN
             future_ppr."startDate",
             p."vendorCostPerEach", p."nationalAvgCost",
             p."isActive",
-            p."clearance",
             eh."country",
             pp.priceList50,
             pp.priceList184,
@@ -442,6 +485,7 @@ BEGIN
         "everydayPriceGst" = ROUND(d.base_rrp_price,2),
  
         "everydayPriceGstSys" = ROUND(d.base_rrp_price,2),
+        "clearanceIndicator" = d.clearance,
  
         "stockOnHandStore" =  d.sohStore ,
         "stockOnHandDC"    = d.sohDc ,

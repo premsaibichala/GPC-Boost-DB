@@ -330,7 +330,42 @@ WITH
           eod."offerId",
           eoh."offerType",
           eoh."OfferTypeId",
-          p."clearance",
+          CASE
+    WHEN eh."country" = 'AU' THEN
+        CASE
+            WHEN pp.clearance_price_050 IS NOT NULL
+                 AND pp.priceList184 IS NOT NULL
+            THEN
+                CASE
+                    WHEN pp.clearance_price_050 <= pp.priceList184
+                        THEN 'Clearance'
+                    ELSE 'Mgr Special'
+                END
+            WHEN pp.clearance_price_050 IS NOT NULL
+                THEN 'Clearance'
+
+            WHEN pp.priceList184 IS NOT NULL
+                THEN 'Mgr Special'
+            ELSE 'N'
+        END
+    WHEN eh."country" = 'NZ' THEN
+        CASE
+            WHEN pp.priceList499 IS NOT NULL
+                 AND pp.priceList498 IS NOT NULL
+            THEN
+                CASE
+                    WHEN pp.priceList499 > pp.priceList498
+                        THEN 'Mgr Special'
+                    ELSE 'Clearance'
+                END
+            WHEN pp.priceList499 IS NOT NULL
+                THEN 'Clearance'
+            WHEN pp.priceList498 IS NOT NULL
+                THEN 'Mgr Special'
+            ELSE 'N'
+        END
+    ELSE 'N'
+END clearance,
           rag."G0", rag."G1", rag."G2", rag."G3", rag."G4", rag."G5",
           (COALESCE(s."averageMonthlySales", 0) / 30.0) *
           ((COALESCE(eoh."endDate", eh."endDate") - COALESCE(eoh."startDate", eh."startDate")) + 1) AS calc_units,
@@ -508,10 +543,10 @@ WITH
                THEN CAST(ROUND((d."incrementalPercentage"::numeric / 100) * ROUND(d.calc_units)::numeric) AS integer)
                ELSE d."categoryforecast"
           END AS categoryFcst,
-          CASE WHEN d."clearance" = 'Y' THEN d.base_rrp_price
+          CASE WHEN d."clearance" NOT LIKE 'N' THEN d.base_rrp_price
                ELSE ROUND(d."advertisedPriceGst", 2)
           END AS new_advertisedPriceGst,
-          CASE WHEN d."clearance" = 'Y' THEN ROUND(d.base_rrp_price / (1 + COALESCE(d.gst_value, 0)), 2)
+          CASE WHEN d."clearance" NOT LIKE 'N' THEN ROUND(d.base_rrp_price / (1 + COALESCE(d.gst_value, 0)), 2)
                ELSE ROUND(d."advertisedPriceGst" / (1 + COALESCE(d.gst_value, 0)), 2)
           END AS new_advertisedPrice,
           ROUND(d."nationalAvgCost", 2) AS natAvgCost
@@ -597,7 +632,42 @@ WITH
           eod."offerId",
           eoh."offerType",
           eoh."OfferTypeId",
-          p."clearance",
+          CASE
+    WHEN eh."country" = 'AU' THEN
+        CASE
+            WHEN pp.clearance_price_050 IS NOT NULL
+                 AND pp.priceList184 IS NOT NULL
+            THEN
+                CASE
+                    WHEN pp.clearance_price_050 <= pp.priceList184
+                        THEN 'Clearance'
+                    ELSE 'Mgr Special'
+                END
+            WHEN pp.clearance_price_050 IS NOT NULL
+                THEN 'Clearance'
+
+            WHEN pp.priceList184 IS NOT NULL
+                THEN 'Mgr Special'
+            ELSE 'N'
+        END
+    WHEN eh."country" = 'NZ' THEN
+        CASE
+            WHEN pp.priceList499 IS NOT NULL
+                 AND pp.priceList498 IS NOT NULL
+            THEN
+                CASE
+                    WHEN pp.priceList499 > pp.priceList498
+                        THEN 'Mgr Special'
+                    ELSE 'Clearance'
+                END
+            WHEN pp.priceList499 IS NOT NULL
+                THEN 'Clearance'
+            WHEN pp.priceList498 IS NOT NULL
+                THEN 'Mgr Special'
+            ELSE 'N'
+        END
+    ELSE 'N'
+END clearance,
           eoh."savePercent",
           rag."G0",
           rag."G1",
@@ -801,11 +871,11 @@ WITH
               ELSE d."categoryforecast"
           END AS categoryFcst,
           CASE
-              WHEN d."clearance" = 'Y' THEN d.base_rrp_price
+              WHEN d."clearance" NOT LIKE 'N' THEN d.base_rrp_price
               ELSE ROUND(d.base_rrp_price - (d.base_rrp_price * d."savePercent" / 100), 2)
           END AS new_advertisedPriceGst,
           CASE
-              WHEN d."clearance" = 'Y' THEN ROUND(d.base_rrp_price / (1 + COALESCE(d.gst_value, 0)), 2)
+              WHEN d."clearance" NOT LIKE 'N' THEN ROUND(d.base_rrp_price / (1 + COALESCE(d.gst_value, 0)), 2)
               ELSE ROUND((d.base_rrp_price - (d.base_rrp_price * d."savePercent" / 100)) / (1 + COALESCE(d.gst_value, 0)), 2)
           END AS new_advertisedPrice
       FROM "baseRrpCalculationResolved" d
@@ -963,7 +1033,7 @@ RAISE NOTICE '[%] END   UPDATE tEventOffer | offerType=STD Range Price | offerTy
        AND d."offerNo" = o."offerNumber"
       AND d."offerId" = o."offerId"
       --AND COALESCE(d."isSkuActive", TRUE) = TRUE
-      AND (d."clearanceIndicator" <> 'Y' OR d."clearanceIndicator" IS NULL)
+      AND (d."clearanceIndicator" LIKE 'N' OR d."clearanceIndicator" IS NULL)
       AND d."isSkuActive" = TRUE
     GROUP BY d."offerId", d."eventId",  d."clearanceIndicator", d."offerNo", d."gst"
 )
@@ -1008,7 +1078,7 @@ RAISE NOTICE '[%] END   UPDATE tEventOffer | offerType=STD Range Price | offerTy
       AND d."offerNo" = o."offerNumber"
       AND d."offerId" = o."offerId"
       --AND COALESCE(d."isSkuActive", TRUE) = TRUE
-      AND (d."clearanceIndicator" <> 'Y' OR d."clearanceIndicator" IS NULL)
+      AND (d."clearanceIndicator" LIKE 'N' OR d."clearanceIndicator" IS NULL)
       AND d."isSkuActive" = TRUE
       AND (
             NOT EXISTS (
@@ -1233,4 +1303,3 @@ EXCEPTION
 
 END;
 $BODY$;
-
