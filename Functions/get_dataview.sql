@@ -1,20 +1,22 @@
-﻿-- FUNCTION: public.get_dataview(integer, integer, text[], text[], text[], text[], boolean, boolean, boolean, boolean, integer, integer)
-
+﻿-- FUNCTION: public.get_dataview(integer, integer, text[], text[], text[], text[], boolean, boolean, boolean, boolean, integer, integer, boolean, boolean)
 DROP FUNCTION IF EXISTS public.get_dataview(integer, integer, text[], text[], text[], text[], boolean, boolean, boolean, boolean, integer, integer);
 
+-- DROP FUNCTION IF EXISTS public.get_dataview(integer, integer, text[], text[], text[], text[], boolean, boolean, boolean, boolean, integer, integer, boolean, boolean);
 CREATE OR REPLACE FUNCTION public.get_dataview(
-	p_offer_id integer DEFAULT 1,
-	p_offer_no integer DEFAULT 1,
-	p_skus text[] DEFAULT NULL::text[],
-	p_part_numbers text[] DEFAULT NULL::text[],
-	p_brands text[] DEFAULT NULL::text[],
-	p_part_descriptions text[] DEFAULT NULL::text[],
-	p_sort_advpricegst_desc boolean DEFAULT NULL::boolean,
-	p_sort_edpricegst_desc boolean DEFAULT NULL::boolean,
-	p_sort_edunits_desc boolean DEFAULT NULL::boolean,
-	p_sort_catfcst_desc boolean DEFAULT NULL::boolean,
-	p_page_number integer DEFAULT 1,
-	p_page_size integer DEFAULT 100)
+ p_offer_id integer DEFAULT 1,
+ p_offer_no integer DEFAULT 1,
+ p_skus text[] DEFAULT NULL::text[],
+ p_part_numbers text[] DEFAULT NULL::text[],
+ p_brands text[] DEFAULT NULL::text[],
+ p_part_descriptions text[] DEFAULT NULL::text[],
+ p_sort_advpricegst_desc boolean DEFAULT NULL::boolean,
+ p_sort_edpricegst_desc boolean DEFAULT NULL::boolean,
+ p_sort_edunits_desc boolean DEFAULT NULL::boolean,
+ p_sort_catfcst_desc boolean DEFAULT NULL::boolean,
+ p_sort_futureedprice_desc boolean DEFAULT NULL::boolean,
+ p_sort_futureedeffectivedate_desc boolean DEFAULT NULL::boolean,
+ p_page_number integer DEFAULT 1,
+ p_page_size integer DEFAULT 100)
     RETURNS TABLE(sku text, part_number text, brand text, description text, frompriceind boolean, displayind boolean, clearance text, showroom text, advpricegst numeric, edprice numeric, futureedprice numeric, futureedeffectivedate date, calcsavepercent numeric, calcsavevalue numeric, lecost numeric, natavgcost numeric, catfcst integer, incrfcst integer, fcstcost numeric, fcstsales numeric, fcsttmvalue numeric, fcsttmpercent numeric, edunits numeric, scansupportvalue numeric, scansupportpercent numeric, sohstore integer, sohdc integer, grp0qty integer, grp1qty integer, grp2qty integer, grp3qty integer, grp4qty integer, grp5qty integer, totaltieup integer, tieuppercentfcst numeric, tieupcost numeric, supplierid text, suppliername text, ic2 text, ic3 text, ic4 text, comofferic1 text, incrementaltmdollar numeric, incrementalsalesdollar numeric, edcost numeric, edunittmdollar numeric, advunittmdollar numeric, advsalesdollar numeric, edsalesdollar numeric, totalmultibuyprice numeric, requiredqty integer, advpriceexgst numeric, purchaseqty integer,purchaseprice numeric, freeqty integer, iscatfcstlocked boolean, total_count integer, isskuedited boolean, isskuactive boolean, isfrompriceoverriden boolean) 
     LANGUAGE 'plpgsql'
     COST 100
@@ -26,12 +28,12 @@ DECLARE
     v_sql TEXT;
     v_order TEXT := '';  -- default
     v_offset INT := (p_page_number - 1) * p_page_size;
-	v_eventOffer_count INT;
-	v_where TEXT := '';
+ v_eventOffer_count INT;
+ v_where TEXT := '';
 
 BEGIN
 
-	IF p_skus IS NOT NULL AND array_length(p_skus, 1) > 0 THEN
+ IF p_skus IS NOT NULL AND array_length(p_skus, 1) > 0 THEN
         v_where := v_where || '  (' ||
             array_to_string(ARRAY(SELECT format('p."sku" ILIKE %L', s || '%') FROM unnest(p_skus) s), ' OR ')
             || ') ';
@@ -43,7 +45,6 @@ BEGIN
             || ') ';
     END IF;
 
- 
     -- Same pattern for brand and item class filters:
     IF p_brands IS NOT NULL AND array_length(p_brands, 1) > 0 THEN
         v_where := v_where || '  (' ||
@@ -51,8 +52,7 @@ BEGIN
             || ') ';
     END IF;
 
-   
-	IF p_part_descriptions IS NOT NULL AND array_length(p_part_descriptions, 1) > 0 THEN
+ IF p_part_descriptions IS NOT NULL AND array_length(p_part_descriptions, 1) > 0 THEN
         v_where := v_where || '  (' ||
             array_to_string(
                 ARRAY(SELECT format('p."description" ILIKE %L', '%' || s || '%') FROM unnest(p_part_descriptions) s),
@@ -65,36 +65,53 @@ IF p_sort_advPriceGst_desc IS NOT NULL THEN
         ' ORDER BY f."advertisedPriceGst" ' ||
         CASE WHEN p_sort_advPriceGst_desc
              THEN 'DESC NULLS LAST'
-             ELSE 'ASC NULLS FIRST'
+             ELSE 'ASC NULLS LAST'
         END ;
 ELSIF p_sort_edPriceGst_desc IS NOT NULL THEN
     v_order :=
         ' ORDER BY f."everydayPriceGst" ' ||
         CASE WHEN p_sort_edPriceGst_desc
              THEN 'DESC NULLS LAST'
-             ELSE 'ASC NULLS FIRST'
+             ELSE 'ASC NULLS LAST'
         END ;
 ELSIF p_sort_edUnits_desc IS NOT NULL THEN
     v_order :=
         ' ORDER BY f."everydayUnits" ' ||
         CASE WHEN p_sort_edUnits_desc
              THEN 'DESC NULLS LAST'
-             ELSE 'ASC NULLS FIRST'
+             ELSE 'ASC NULLS LAST'
         END ;
 ELSIF p_sort_catFcst_desc IS NOT NULL THEN
     v_order :=
         ' ORDER BY f."categoryforecast" ' ||
         CASE WHEN p_sort_catFcst_desc
              THEN 'DESC NULLS LAST'
-             ELSE 'ASC NULLS FIRST'
+             ELSE 'ASC NULLS LAST'
         END ;
+ELSIF p_sort_futureedprice_desc IS NOT NULL THEN
+    v_order :=
+        ' ORDER BY f."futureEdPrice" ' ||
+        CASE
+            WHEN p_sort_futureedprice_desc THEN 'DESC'
+            ELSE 'ASC'
+        END ||
+        ' NULLS LAST';
+
+ELSIF p_sort_futureedeffectivedate_desc IS NOT NULL THEN
+    v_order :=
+        ' ORDER BY f."futureEdEffectiveDate" ' ||
+        CASE
+            WHEN p_sort_futureedeffectivedate_desc THEN 'DESC'
+            ELSE 'ASC'
+        END ||
+        ' NULLS LAST';
 END IF;
 
     --------------------------------------------------------
     -- Final SQL with paging
     --------------------------------------------------------
- 
- 	v_sql := '
+
+  v_sql := '
 WITH filtered AS (
     SELECT
         e.sku,
@@ -115,8 +132,8 @@ WITH filtered AS (
 
         e."advertisedPriceGst",
         e."everydayPriceGst",
-		
-		e."futureEdPrice",
+
+  e."futureEdPrice",
         e."futureEdEffectiveDate",
         e."advertisedPriceGst" / (1+e."gst") as "advertisedPrice",
 
@@ -129,35 +146,35 @@ WITH filtered AS (
 
         e."scanSupport$",
         e."scanSupport%",
-		e."gst",
+  e."gst",
         e."stockOnHandStore",
         e."stockOnHandDC",
-		e."forecastCost",
-		e."forecastSales",
-		e."forecastTradeMargin$",
-		e."forecastTradeMargin%",
+  e."forecastCost",
+  e."forecastSales",
+  e."forecastTradeMargin$",
+  e."forecastTradeMargin%",
         e."group0Quantity",
         e."group1Quantity",
         e."group2Quantity",
         e."group3Quantity",
         e."group4Quantity",
         e."group5Quantity",
-		e."tieUpCost",
+  e."tieUpCost",
         e."totalTieUp",
         e."offerQuantity",
-		e."incrementalSales",
-		e."incrementalTrade$",
+  e."incrementalSales",
+  e."incrementalTrade$",
         e."everydayCost",
         e."isCategoryForecastLocked",
         eo."totalMultiBuyPrice",
         eo."requiredQuantity",
-		eo."spacePurchase",
-		e."purchaseQuantity",
-		e."purchasePrice",
-		e."isSkuEdited",
+  eo."spacePurchase",
+  e."purchaseQuantity",
+  e."purchasePrice",
+  e."isSkuEdited",
         COUNT(*) OVER() AS total_count,
         e."isSkuActive",
-		e."isFromPriceOverridden"
+  e."isFromPriceOverridden"
     FROM "tEventOfferDetail" e
     JOIN "tEvent" ev
       ON e."eventId" = ev."eventId"
@@ -168,9 +185,9 @@ WITH filtered AS (
     JOIN "tEventOffer" eo
       ON e."offerId" = eo."offerId"
      AND e."offerNo" = eo."offerNumber"
-     
+
     WHERE e."offerId" = ' || p_offer_id || '
-      AND e."offerNo" = ' || p_offer_no || ' 
+      AND e."offerNo" = ' || p_offer_no || '
 ' || CASE
         WHEN TRIM(v_where) <> '' THEN ' AND ' || v_where
         ELSE ''
@@ -190,8 +207,8 @@ SELECT
 
     f."advertisedPriceGst"::numeric          AS advpricegst,
     f."everydayPriceGst"::numeric            AS edprice,
-	f."futureEdPrice"                        AS "futureEdPrice",
-	f."futureEdEffectiveDate"                    AS "futureEdEffectiveDate",
+ f."futureEdPrice"                        AS "futureEdPrice",
+ f."futureEdEffectiveDate"                    AS "futureEdEffectiveDate",
 
     ROUND(
         CASE
@@ -299,46 +316,13 @@ ROUND(
     f."isSkuActive"                          AS isskuactive,
 	f."isFromPriceOverridden"				 AS isfrompriceoverriden
 FROM filtered f
-' ||CASE WHEN TRIM(v_order) <> '' THEN v_order ELSE 'ORDER BY f.sku' END || ' 
+' ||CASE WHEN TRIM(v_order) <> '' THEN v_order ELSE 'ORDER BY f.sku' END || '
 OFFSET ' || v_offset || '
 LIMIT ' || p_page_size || ';
 ';
 
-    
     -- execute
     RETURN QUERY EXECUTE v_sql;
 
 END;
 $BODY$;
-
-ALTER TABLE public."tEventOfferDetail"
-ADD COLUMN IF NOT EXISTS "purchasePrice" numeric(19,5);
-
-ALTER TABLE public."tEventOfferDetail"
-ADD COLUMN IF NOT EXISTS "isFromPriceOverridden" BOOLEAN;
-
-ALTER TABLE public."tEventOfferDetail"
-ADD COLUMN IF NOT EXISTS "futureEdPrice" numeric(19,5);
-
-ALTER TABLE public."tEventOfferDetail"
-ADD COLUMN IF NOT EXISTS "futureEdEffectiveDate" date;
-
-ALTER TABLE IF EXISTS public."tPriceProductRules" DROP CONSTRAINT IF EXISTS uk_tpriceproductrules;
-
-ALTER TABLE IF EXISTS public."tPriceProductRules" DROP CONSTRAINT IF EXISTS pk_tpriceproductrules;
-
-ALTER TABLE IF EXISTS public."tPriceProductRules"
-ADD CONSTRAINT "pk_tpriceproductrules"
-PRIMARY KEY ("country", "supplierId", "sku", "company", "startDate");
-
-ALTER TABLE IF EXISTS public."tPriceListDetail" DROP CONSTRAINT IF EXISTS pk_tpricelistdetail;
-
-ALTER TABLE IF EXISTS public."tPriceListDetail"
-    ADD CONSTRAINT pk_tpricelistdetail PRIMARY KEY (company, "priceList", sku, "startDate");
-
-
-ALTER TABLE IF EXISTS public."tPriceListDetail" DROP CONSTRAINT IF EXISTS uk_tpricelistdetail;
-
-ALTER TABLE IF EXISTS public."tPriceListDetail"
-    ADD CONSTRAINT uk_tpricelistdetail UNIQUE (company, country, "priceList", sku, "startDate");
-
