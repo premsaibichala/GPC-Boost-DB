@@ -1,44 +1,56 @@
-﻿DROP FUNCTION IF EXISTS public.get_products_by_filters(integer, text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], boolean, boolean, boolean, integer, integer, integer, timestamp without time zone, boolean, boolean, boolean, boolean, boolean, boolean, boolean, integer, integer);
+﻿-- FUNCTION: public.get_products_by_filters(...)
+-- Adds 3 new parameters: p_not_skus, p_not_part_numbers, p_not_supplier_names
+-- Also adds the missing positive "supplierName" filter for p_supplier_names (was accepted but never used).
+-- Wildcard ('*' -> '%') and '!' (NOT) parsing happens on the C# side (EventOfferService.ExtractWildcardFilter);
+-- this function just consumes the already-normalized include/exclude arrays.
+--
+-- FIX: sku / partNo / supplierId / supplierName filters (and their NOT counterparts) used to
+-- unconditionally append '%' to every value, which silently turned a leading wildcard (e.g. "%RED")
+-- into a "contains" match ("%RED%") instead of an "ends with" match. Now '%' is only appended when
+-- the caller did not already supply one, preserving the legacy implicit-prefix behaviour for plain
+-- values while respecting exactly what the caller placed when '*' was used.
 
--- FUNCTION: public.get_products_by_filters(integer, text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], boolean, boolean, boolean, boolean, integer, integer, integer, timestamp without time zone, boolean, boolean, boolean, boolean, boolean, boolean, boolean, integer, integer)
--- DROP FUNCTION IF EXISTS public.get_products_by_filters(integer, text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], boolean, boolean, boolean, boolean, integer, integer, integer, timestamp without time zone, boolean, boolean, boolean, boolean, boolean, boolean, boolean, integer, integer);
+DROP FUNCTION IF EXISTS public.get_products_by_filters(integer, text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], boolean, boolean, boolean, boolean, integer, integer, integer, timestamp without time zone, boolean, boolean, boolean, boolean, boolean, boolean, boolean, integer, integer);
 
 CREATE OR REPLACE FUNCTION public.get_products_by_filters(
-	p_event_id integer,
-	p_skus text[] DEFAULT NULL::text[],
-	p_part_numbers text[] DEFAULT NULL::text[],
-	p_supplier_ids text[] DEFAULT NULL::text[],
-	p_not_supplier_ids text[] DEFAULT NULL::text[],
-	p_supplier_names text[] DEFAULT NULL::text[],
-	p_brands text[] DEFAULT NULL::text[],
-	p_not_brands text[] DEFAULT NULL::text[],
-	p_ic1 text[] DEFAULT NULL::text[],
-	p_not_ic1 text[] DEFAULT NULL::text[],
-	p_ic2 text[] DEFAULT NULL::text[],
-	p_not_ic2 text[] DEFAULT NULL::text[],
-	p_ic3 text[] DEFAULT NULL::text[],
-	p_not_ic3 text[] DEFAULT NULL::text[],
-	p_ic4 text[] DEFAULT NULL::text[],
-	p_not_ic4 text[] DEFAULT NULL::text[],
-	p_part_descriptions text[] DEFAULT NULL::text[],
-	p_selected boolean DEFAULT false,
-	p_new boolean DEFAULT false,
-	p_duplicates boolean DEFAULT false,
-	p_is_edited boolean DEFAULT NULL::boolean,
-	p_offerid integer DEFAULT NULL::integer,
-	p_offerno integer DEFAULT NULL::integer,
-	p_offertypeid integer DEFAULT NULL::integer,
-	p_searchedat timestamp without time zone DEFAULT NULL::timestamp without time zone,
-	p_sort_sku_desc boolean DEFAULT NULL::boolean,
-	p_sort_partno_desc boolean DEFAULT NULL::boolean,
-	p_sort_desc_desc boolean DEFAULT NULL::boolean,
-	p_sort_brand_desc boolean DEFAULT NULL::boolean,
-	p_sort_ic4_desc boolean DEFAULT NULL::boolean,
-	p_sort_showroom_desc boolean DEFAULT NULL::boolean,
-	p_sort_clearance_desc boolean DEFAULT NULL::boolean,
-	p_page_number integer DEFAULT 1,
-	p_page_size integer DEFAULT 100)
-    RETURNS TABLE(sku text, part_no text, description text, brand text, itemclass4 text, showroomindicator text, clearance text, categorymanager text, itemclass1 text, country text, isnew boolean, isselected boolean, isunselected boolean, isskuactive boolean, isduplicate boolean, duplicate_offer_name text, duplicate_offer_id integer, duplicate_page integer, duplicate_page_position integer, total_count integer, event_offer_count integer, new_count integer, duplicate_count integer) 
+    p_event_id integer,
+    p_skus text[] DEFAULT NULL::text[],
+    p_part_numbers text[] DEFAULT NULL::text[],
+    p_supplier_ids text[] DEFAULT NULL::text[],
+    p_not_supplier_ids text[] DEFAULT NULL::text[],
+    p_supplier_names text[] DEFAULT NULL::text[],
+    p_brands text[] DEFAULT NULL::text[],
+    p_not_brands text[] DEFAULT NULL::text[],
+    p_ic1 text[] DEFAULT NULL::text[],
+    p_not_ic1 text[] DEFAULT NULL::text[],
+    p_ic2 text[] DEFAULT NULL::text[],
+    p_not_ic2 text[] DEFAULT NULL::text[],
+    p_ic3 text[] DEFAULT NULL::text[],
+    p_not_ic3 text[] DEFAULT NULL::text[],
+    p_ic4 text[] DEFAULT NULL::text[],
+    p_not_ic4 text[] DEFAULT NULL::text[],
+    p_part_descriptions text[] DEFAULT NULL::text[],
+    p_not_skus text[] DEFAULT NULL::text[],
+    p_not_part_numbers text[] DEFAULT NULL::text[],
+    p_not_supplier_names text[] DEFAULT NULL::text[],
+    p_selected boolean DEFAULT false,
+    p_new boolean DEFAULT false,
+    p_duplicates boolean DEFAULT false,
+    p_is_edited boolean DEFAULT NULL::boolean,
+    p_offerid integer DEFAULT NULL::integer,
+    p_offerno integer DEFAULT NULL::integer,
+    p_offertypeid integer DEFAULT NULL::integer,
+    p_searchedat timestamp without time zone DEFAULT NULL::timestamp without time zone,
+    p_sort_sku_desc boolean DEFAULT NULL::boolean,
+    p_sort_partno_desc boolean DEFAULT NULL::boolean,
+    p_sort_desc_desc boolean DEFAULT NULL::boolean,
+    p_sort_brand_desc boolean DEFAULT NULL::boolean,
+    p_sort_ic4_desc boolean DEFAULT NULL::boolean,
+    p_sort_showroom_desc boolean DEFAULT NULL::boolean,
+    p_sort_clearance_desc boolean DEFAULT NULL::boolean,
+    p_page_number integer DEFAULT 1,
+    p_page_size integer DEFAULT 100)
+ RETURNS TABLE(sku text, part_no text, description text, brand text, itemclass4 text, showroomindicator text, clearance text, categorymanager text, itemclass1 text, country text, isnew boolean, isselected boolean, isunselected boolean, isskuactive boolean, isduplicate boolean, duplicate_offer_name text, duplicate_offer_id integer, duplicate_page integer, duplicate_page_position integer, total_count integer, event_offer_count integer, new_count integer, duplicate_count integer)
     LANGUAGE 'plpgsql'
     COST 100
     VOLATILE PARALLEL UNSAFE
@@ -71,16 +83,16 @@ DECLARE
     v_duplicate_count INT;       -- count of v_duplicate_skus
 BEGIN
     SELECT company INTO v_company FROM "tEvent" WHERE "eventId" = p_event_id;
-	    v_searched_at_date_literal := CASE
+	   v_searched_at_date_literal := CASE
         WHEN p_searchedAt IS NULL THEN 'NULL'
         ELSE quote_literal(p_searchedAt::timestamp)    -- e.g. '2025-11-29'
     END;
     -- build the isNew boolean condition (as SQL text)
     -- matches C# check: DateAdded exists AND DateAdded(date) > searchedAt(date) AND offerType in (...)
-    v_isnew_cond := 
+    v_isnew_cond :=
         'f."createdAt" IS NOT NULL'
         || ' AND f."createdAt"::timestamp > ' || v_searched_at_date_literal;
- 
+
     -- SKUs that belong to the current offer (type 3 ignores offerNo)
     IF p_offerTypeId = 3 THEN
         v_offer_skus_subquery := 'SELECT "sku" FROM "tEventOfferDetail" WHERE "offerId" = '
@@ -91,7 +103,7 @@ BEGIN
             || ' AND "offerNo" = ' || COALESCE(p_offerNo::text, 'NULL')
             || ' AND "isSkuActive" = FALSE';
     END IF;
- 
+
     -- Active / edited filter applied INSIDE the CTE so total_count is accurate.
     --   p_is_edited = TRUE  -> active products PLUS inactive products that exist in this offer
     --   p_is_edited = FALSE -> active products only (offer detail irrelevant to inclusion)
@@ -100,7 +112,7 @@ BEGIN
     ELSE
         v_where := v_where || ' AND "isActive" = TRUE ';
     END IF;
- 
+
 	-- Count event offers
 	IF p_offerTypeId = 3 THEN
 	    SELECT COUNT(*)
@@ -141,27 +153,42 @@ BEGIN
 
 	IF p_skus IS NOT NULL AND array_length(p_skus, 1) > 0 THEN
         v_where := v_where || ' AND (' ||
-            array_to_string(ARRAY(SELECT format('"sku" ILIKE %L', s || '%') FROM unnest(p_skus) s), ' OR ')
+            array_to_string(ARRAY(SELECT format('"sku" ILIKE %L', CASE WHEN position('%' in s) > 0 THEN s ELSE s || '%' END) FROM unnest(p_skus) s), ' OR ')
+            || ') ';
+    END IF;
+    IF p_not_skus IS NOT NULL AND array_length(p_not_skus, 1) > 0 THEN
+        v_where := v_where || ' AND NOT (' ||
+            array_to_string(ARRAY(SELECT format('"sku" ILIKE %L', CASE WHEN position('%' in s) > 0 THEN s ELSE s || '%' END) FROM unnest(p_not_skus) s), ' OR ')
             || ') ';
     END IF;
     IF p_part_numbers IS NOT NULL AND array_length(p_part_numbers, 1) > 0 THEN
         v_where := v_where || ' AND (' ||
-            array_to_string(ARRAY(SELECT format('"partNo" ILIKE %L', s || '%') FROM unnest(p_part_numbers) s), ' OR ')
+            array_to_string(ARRAY(SELECT format('"partNo" ILIKE %L', CASE WHEN position('%' in s) > 0 THEN s ELSE s || '%' END) FROM unnest(p_part_numbers) s), ' OR ')
+            || ') ';
+    END IF;
+    IF p_not_part_numbers IS NOT NULL AND array_length(p_not_part_numbers, 1) > 0 THEN
+        v_where := v_where || ' AND NOT (' ||
+            array_to_string(ARRAY(SELECT format('"partNo" ILIKE %L', CASE WHEN position('%' in s) > 0 THEN s ELSE s || '%' END) FROM unnest(p_not_part_numbers) s), ' OR ')
             || ') ';
     END IF;
     IF p_supplier_ids IS NOT NULL AND array_length(p_supplier_ids, 1) > 0 THEN
         v_where := v_where || ' AND (' ||
-            array_to_string(ARRAY(SELECT format('"supplierId" ILIKE %L', s || '%') FROM unnest(p_supplier_ids) s), ' OR ')
+            array_to_string(ARRAY(SELECT format('"supplierId" ILIKE %L', CASE WHEN position('%' in s) > 0 THEN s ELSE s || '%' END) FROM unnest(p_supplier_ids) s), ' OR ')
             || ') ';
     END IF;
     IF p_not_supplier_ids IS NOT NULL AND array_length(p_not_supplier_ids, 1) > 0 THEN
         v_where := v_where || ' AND NOT (' ||
-            array_to_string(ARRAY(SELECT format('"supplierId" ILIKE %L', s || '%') FROM unnest(p_not_supplier_ids) s), ' OR ')
+            array_to_string(ARRAY(SELECT format('"supplierId" ILIKE %L', CASE WHEN position('%' in s) > 0 THEN s ELSE s || '%' END) FROM unnest(p_not_supplier_ids) s), ' OR ')
             || ') ';
     END IF;
     IF p_supplier_names IS NOT NULL AND array_length(p_supplier_names, 1) > 0 THEN
         v_where := v_where || ' AND (' ||
-            array_to_string(ARRAY(SELECT format('"supplierName" ILIKE %L', s || '%') FROM unnest(p_supplier_names) s), ' OR ')
+            array_to_string(ARRAY(SELECT format('"supplierName" ILIKE %L', CASE WHEN position('%' in s) > 0 THEN s ELSE s || '%' END) FROM unnest(p_supplier_names) s), ' OR ')
+            || ') ';
+    END IF;
+    IF p_not_supplier_names IS NOT NULL AND array_length(p_not_supplier_names, 1) > 0 THEN
+        v_where := v_where || ' AND NOT (' ||
+            array_to_string(ARRAY(SELECT format('"supplierName" ILIKE %L', CASE WHEN position('%' in s) > 0 THEN s ELSE s || '%' END) FROM unnest(p_not_supplier_names) s), ' OR ')
             || ') ';
     END IF;
     -- Same pattern for brand and item class filters:
@@ -175,7 +202,7 @@ BEGIN
             array_to_string(ARRAY(SELECT format('"brand" ILIKE %L', s) FROM unnest(p_not_brands) s), ' OR ')
             || ') ';
     END IF;
-	IF p_ic1 IS NOT NULL AND array_length(p_ic1, 1) > 0 THEN
+	 IF p_ic1 IS NOT NULL AND array_length(p_ic1, 1) > 0 THEN
         v_where := v_where || ' AND (' ||
             array_to_string(
                 ARRAY(SELECT format('"itemClass1" ILIKE %L', s) FROM unnest(p_ic1) s),
@@ -240,7 +267,7 @@ BEGIN
                 ' OR '
             ) || ') ';
     END IF;
- 
+
 
 	 IF p_part_descriptions IS NOT NULL AND array_length(p_part_descriptions, 1) > 0 THEN
         v_where := v_where || ' AND (' ||
@@ -352,9 +379,9 @@ v_sql := '
     f."itemClass1"::TEXT,
     f."country"::TEXT,
     CASE WHEN ' || v_isnew_cond || ' THEN TRUE ELSE FALSE END AS isNew,
-    CASE WHEN e."sku" IS NOT NULL 
+    CASE WHEN e."sku" IS NOT NULL
          THEN TRUE ELSE FALSE END AS isSelected,
-    CASE WHEN e."sku" IS NULL 
+    CASE WHEN e."sku" IS NULL
          THEN TRUE ELSE FALSE END AS isUnselected,
     COALESCE(e."isSkuActive", TRUE) AS isSkuActive,
     CASE WHEN f."sku" = ANY($1) THEN TRUE ELSE FALSE END AS isDuplicate,
@@ -367,7 +394,7 @@ v_sql := '
     '||v_eventOffer_count||'::INT AS event_offer_count,
 	'||v_new_count||'::INT AS new_count,
 	'||v_duplicate_count||'::INT AS duplicate_count
-	
+
     FROM filtered f
     LEFT JOIN "tEventOfferDetail" e
            ON
@@ -443,9 +470,9 @@ ELSE
     f."itemClass1"::TEXT,
     f."country"::TEXT,
     CASE WHEN ' || v_isnew_cond || ' THEN TRUE ELSE FALSE END AS isNew,
-    CASE WHEN e."sku" IS NOT NULL 
+    CASE WHEN e."sku" IS NOT NULL
          THEN TRUE ELSE FALSE END AS isSelected,
-    CASE WHEN e."sku" IS NULL 
+    CASE WHEN e."sku" IS NULL
          THEN TRUE ELSE FALSE END AS isUnselected,
 	COALESCE(e."isSkuActive", TRUE) as isSkuActive,
     CASE WHEN f."sku" = ANY($1) THEN TRUE ELSE FALSE END AS isDuplicate,
