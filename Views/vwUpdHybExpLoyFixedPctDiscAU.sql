@@ -48,7 +48,7 @@ CREATE OR REPLACE VIEW public."vwUpdHybExpLoyFixedPctDiscAU"
              JOIN "tOfferType" ot ON eo."commercialOfferType"::text = ot."offerType"::text AND ev.country::text = ot.country::text
              JOIN "tConfig" tc ON ev.country::text = tc.configkey::text AND tc.configtype::text = 'COUNTRY'::text
              LEFT JOIN "tHybrisStickerText" hst ON eo."hybrisStickerText"::text = hst."hybrisStickerText"::text AND ev.country::text = hst.country::text
-          WHERE ev.country::text = 'AU'::text AND ev.locked = true AND eo."isNotAvailableOnline" = false AND eod."advertisedPrice" > 0::numeric AND ((ot."offerTypeId" = ANY (ARRAY[1, 101])) OR (ot."offerTypeId" = ANY (ARRAY[6, 106])) AND eod."fromPriceIndicator" = true) AND eo."isRewards" = true AND NOT (ev."eventType"::text = 'Retail Catalogue'::text AND eo."pagePosition" = 0)
+          WHERE ev.country::text = 'AU'::text AND ev.locked = true AND eo."isNotAvailableOnline" = false AND eod."advertisedPrice" > 0::numeric AND ((ot."offerTypeId" = ANY (ARRAY[1, 101])) OR ((ot."offerTypeId" = ANY (ARRAY[6, 106])) AND eod."fromPriceIndicator" = true) OR (ot."offerTypeId" = ANY (ARRAY[14, 114]))) AND eo."isRewards" = true AND NOT (ev."eventType"::text = 'Retail Catalogue'::text AND eo."pagePosition" = 0)
           GROUP BY eo."eventId", eo.page, eo."pagePosition", eo."offerId", ot."offerTypeId", ((floor(eod."calculatedSavePercentage" / 5::numeric) * 5::numeric)::integer), (round(eod."advertisedPriceGst"::numeric, 2)::numeric(19,2)), ot."hybrisLoyaltyStickerBackgroundColor", ot."hybrisLoyaltyStickerTextColor", ot."hybrisLoyaltyStickerText", ot."hybrisLoyaltyPillBackgroundColor", ot."hybrisLoyaltyPillTextColor", ot."hybrisLoyaltyPillText", ot."hybrisLoyaltyCartMessage", eo."hybrisPillText", ev."priceList", ev."startDate", ev."endDate", ev."startTime", ev."endTime", eod."fromPriceIndicator", eod."advertisedPriceGst"
         UNION ALL
          SELECT eo."eventId" AS event_id,
@@ -161,7 +161,7 @@ CREATE OR REPLACE VIEW public."vwUpdHybExpLoyFixedPctDiscAU"
              JOIN "tOfferType" ot ON eo."commercialOfferType"::text = ot."offerType"::text AND ev.country::text = ot.country::text
              JOIN "tConfig" tc ON ev.country::text = tc.configkey::text AND tc.configtype::text = 'COUNTRY'::text
              LEFT JOIN "tHybrisStickerText" hst ON eo."hybrisStickerText"::text = hst."hybrisStickerText"::text AND ev.country::text = hst.country::text
-          WHERE ev.country::text = 'AU'::text AND ev.locked = true AND eo."isNotAvailableOnline" = false AND eod."advertisedPrice" > 0::numeric AND ot."offerTypeId" = 14 AND eo."isRewards" = true AND NOT (ev."eventType"::text = 'Retail Catalogue'::text AND eo."pagePosition" = 0)
+          WHERE ev.country::text = 'AU'::text AND ev.locked = true AND eo."isNotAvailableOnline" = false AND eod."advertisedPrice" > 0::numeric AND ot."offerTypeId" IN (14,114) AND eo."isRewards" = true AND NOT (ev."eventType"::text = 'Retail Catalogue'::text AND eo."pagePosition" = 0)
           GROUP BY eo."eventId", eo.page, eo."pagePosition", eo."offerId", ot."offerTypeId", ot."hybrisLoyaltyStickerBackgroundColor", ot."hybrisLoyaltyStickerTextColor", ot."hybrisLoyaltyStickerText", ot."hybrisLoyaltyPillBackgroundColor", ot."hybrisLoyaltyPillTextColor", ot."hybrisLoyaltyPillText", ot."hybrisLoyaltyCartMessage", eo."hybrisPillText", ev."priceList", ev."startDate", ev."endDate", ev."startTime", ev."endTime"
         ), promo_meta AS (
          SELECT base.event_id,
@@ -186,7 +186,7 @@ CREATE OR REPLACE VIEW public."vwUpdHybExpLoyFixedPctDiscAU"
             max(base."SHOW_PRICE_STRIKE_THROUGH") AS "SHOW_PRICE_STRIKE_THROUGH",
             max(base."SALE_KEYWORDS") AS "SALE_KEYWORDS"
            FROM base
-          WHERE base.offer_type_id = ANY (ARRAY[6, 14, 23, 106])
+          WHERE base.offer_type_id = ANY (ARRAY[6, 14, 23, 106, 114])
           GROUP BY base.event_id, base.page, base."pagePosition", base."offerId", base.offer_type_id, base."PROMOTION_CODE"
         ), exploded AS (
          SELECT b.event_id,
@@ -198,7 +198,7 @@ CREATE OR REPLACE VIEW public."vwUpdHybExpLoyFixedPctDiscAU"
             sku_single.sku_single
            FROM base b
              CROSS JOIN LATERAL unnest(string_to_array(b."PRODUCTS", ','::text)) sku_single(sku_single)
-          WHERE b.offer_type_id = ANY (ARRAY[6, 14, 23, 106])
+          WHERE b.offer_type_id = ANY (ARRAY[6, 14, 23, 106, 114])
         ), exploded_rn AS (
          SELECT e.event_id,
             e.page,
@@ -261,7 +261,7 @@ CREATE OR REPLACE VIEW public."vwUpdHybExpLoyFixedPctDiscAU"
             base."SALE_KEYWORDS",
             NULL::integer AS chunk_index
            FROM base
-          WHERE base.offer_type_id <> ALL (ARRAY[6, 14, 23, 106])
+          WHERE base.offer_type_id <> ALL (ARRAY[6, 14, 23, 106, 114])
         ), final_rows AS (
          SELECT unchanged.event_id,
             unchanged.page,
@@ -315,7 +315,7 @@ CREATE OR REPLACE VIEW public."vwUpdHybExpLoyFixedPctDiscAU"
         )
  SELECT
         CASE
-            WHEN (offer_type_id = ANY (ARRAY[6, 14, 23, 106])) AND COALESCE(chunk_index, 0) > 0 THEN ("PROMOTION_CODE" || '.'::text) || chunk_index::text
+            WHEN (offer_type_id = ANY (ARRAY[6, 14, 23, 106, 114])) AND COALESCE(chunk_index, 0) > 0 THEN ("PROMOTION_CODE" || '.'::text) || chunk_index::text
             ELSE "PROMOTION_CODE"
         END AS "PROMOTION_CODE",
     "STICKER_BGCOLOR",
