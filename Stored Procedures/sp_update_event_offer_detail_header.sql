@@ -112,6 +112,7 @@ BEGIN
           AND pld."isActive"
           AND pld.company = v_company
           AND pld."startDate" <= CURRENT_DATE
+          AND pld."endDate" >= CURRENT_DATE
           AND pld."sku" IN (SELECT "sku" FROM "offerSkus")
     ),
 
@@ -758,6 +759,7 @@ WHERE o."offerId" = s."offerId"
           AND pld."isActive"
           AND pld.company = v_company
           AND pld."startDate" <= CURRENT_DATE
+          AND pld."endDate" >= CURRENT_DATE
           AND pld."sku" IN (SELECT "sku" FROM "offerSkus")
     ),
 
@@ -1402,6 +1404,7 @@ WHERE o."offerId" = s."offerId"
           AND pld."isActive"
           AND pld.company = v_company
           AND pld."startDate" <= CURRENT_DATE
+          AND pld."endDate" >= CURRENT_DATE
           AND pld."sku" IN (SELECT "sku" FROM "offerSkus")
     ),
 
@@ -2040,6 +2043,7 @@ WHERE o."offerId" = s."offerId"
           AND pld."isActive"
           AND pld.company = v_company
           AND pld."startDate" <= CURRENT_DATE
+          AND pld."endDate" >= CURRENT_DATE
           AND pld."sku" IN (SELECT "sku" FROM "offerSkus")
     ),
 
@@ -2697,6 +2701,7 @@ END IF;
           AND pld."isActive"
           AND pld.company = v_company
           AND pld."startDate" <= CURRENT_DATE
+          AND pld."endDate" >= CURRENT_DATE
           AND pld."sku" IN (SELECT "sku" FROM "offerSkus")
     ),
 

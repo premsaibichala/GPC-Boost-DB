@@ -68,6 +68,7 @@ BEGIN
         WHERE pld."priceList" IN ('050','184','499','498','390','419','824','343','446','241','036','371','274','211','044','134','021','492')
           AND pld."isActive"
           AND pld."startDate" <= CURRENT_DATE
+          AND pld."endDate" >= CURRENT_DATE
           AND pld."sku" IN (SELECT "sku" FROM "relevantSkus")
     )
     SELECT

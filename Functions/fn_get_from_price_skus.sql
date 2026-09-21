@@ -50,6 +50,7 @@ AS $BODY$
                   WHERE pld."priceList" IN ('050','184','499','498')
                     AND pld."isActive"
                     AND pld."startDate" <= CURRENT_DATE
+                    AND pld."endDate" >= CURRENT_DATE
               ),
               "pivoted_prices" AS (
                   SELECT
@@ -138,6 +139,7 @@ AS $BODY$
                   WHERE pld."priceList" IN ('050','184','499','498')
                     AND pld."isActive"
                     AND pld."startDate" <= CURRENT_DATE
+                    AND pld."endDate" >= CURRENT_DATE
               ),
               "pivoted_prices" AS (
                   SELECT
@@ -230,6 +232,7 @@ AS $BODY$
                   WHERE pld."priceList" IN ('050','184','499','498')
                     AND pld."isActive"
                     AND pld."startDate" <= CURRENT_DATE
+                    AND pld."endDate" >= CURRENT_DATE
               ),
               "pivoted_prices" AS (
                   SELECT

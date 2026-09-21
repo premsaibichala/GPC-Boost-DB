@@ -182,6 +182,8 @@ BEGIN
         LEFT JOIN "tPriceListDetail" pld
                ON pld."sku" = f."sku"
               AND pld."isActive" = TRUE
+              AND pld."startDate" <= CURRENT_DATE
+              AND pld."endDate" >= CURRENT_DATE
               AND pld.company = ' || quote_literal(v_company) || '
               AND pld."country" = f."country"
               AND (

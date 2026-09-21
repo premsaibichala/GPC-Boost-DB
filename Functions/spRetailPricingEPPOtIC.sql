@@ -136,6 +136,8 @@ BEGIN
             AND eo."offerNumber" = eod."offerNo"
             AND eod."isSkuActive" = TRUE
 		LEFT JOIN "tPriceListDetail" pld ON eod."sku" = pld."sku" and eod."country"=pld."country" and pld."isActive" = TRUE  AND pld."priceList" IN (''050'', ''184'', ''498'', ''499'')
+            AND pld."startDate" <= CURRENT_DATE
+            AND pld."endDate" >= CURRENT_DATE
         INNER JOIN "tProducts" prod ON eod."sku" = prod."sku"
         INNER JOIN "tOfferType" ot_type ON eo."OfferTypeId" = ot_type."offerTypeId" and eh."country"=ot_type."country"
         LEFT JOIN offer_totals ot_tot ON eo."offerId" = ot_tot."offerId"

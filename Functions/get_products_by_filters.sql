@@ -81,6 +81,7 @@ DECLARE
     v_filtered_skus TEXT[];      -- SKUs remaining after the filter step, computed BEFORE duplicate check
     v_duplicate_skus TEXT[];     -- subset of v_filtered_skus found to be duplicates
     v_duplicate_count INT;       -- count of v_duplicate_skus
+    v_row_count INT;             -- rows returned by the final paginated query
 BEGIN
     SELECT company INTO v_company FROM "tEvent" WHERE "eventId" = p_event_id;
 	   v_searched_at_date_literal := CASE
@@ -147,8 +148,7 @@ BEGIN
         v_duplicate_where := v_duplicate_where || ' AND o."offerId" <> ' || p_offerId;
     ELSE
         v_duplicate_where := v_duplicate_where
-            || ' AND o."offerId" <> ' || p_offerId
-            || ' AND o."offerNumber" <> ' || COALESCE(p_offerNo::text, 'NULL');
+            || ' AND o."offerId" <> ' || p_offerId;
     END IF;
 
 	IF p_skus IS NOT NULL AND array_length(p_skus, 1) > 0 THEN
@@ -353,6 +353,8 @@ v_sql := '
         LEFT JOIN "tPriceListDetail" pld
                ON pld."sku" = f."sku"
               AND pld."isActive" = TRUE
+              AND pld."startDate" <= CURRENT_DATE
+              AND pld."endDate" >= CURRENT_DATE
               AND pld.company = ' || quote_literal(v_company) || '
               AND pld."country" = f."country"
               AND (
@@ -445,6 +447,8 @@ ELSE
         LEFT JOIN "tPriceListDetail" pld
                ON pld."sku" = f."sku"
               AND pld."isActive" = TRUE
+              AND pld."startDate" <= CURRENT_DATE
+              AND pld."endDate" >= CURRENT_DATE
               AND pld.company = ' || quote_literal(v_company) || '
               AND (
                     (pld."priceList" IN (''050'',''184'') AND pld."country" = ''AU'')
@@ -519,5 +523,23 @@ ELSE
 END IF;
     -- execute
     RETURN QUERY EXECUTE v_sql USING COALESCE(v_duplicate_skus, ARRAY[]::text[]);
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+
+    -- If every filtered SKU is a duplicate (search count == duplicate count) and the
+    -- p_duplicates/p_selected/p_new filters exclude them all, the query above returns
+    -- no rows even though matches exist. Surface the counts via a single counts-only row
+    -- so callers can still see total_count/duplicate_count/etc.
+    IF v_row_count = 0 AND COALESCE(array_length(v_filtered_skus, 1), 0) > 0 THEN
+        RETURN QUERY
+        SELECT
+            NULL::TEXT, NULL::TEXT, NULL::TEXT, NULL::TEXT, NULL::TEXT, NULL::TEXT,
+            NULL::TEXT, NULL::TEXT, NULL::TEXT, NULL::TEXT,
+            FALSE, FALSE, FALSE, FALSE, FALSE,
+            NULL::TEXT, NULL::INT, NULL::INT, NULL::INT,
+            array_length(v_filtered_skus, 1)::INT AS total_count,
+            v_eventOffer_count::INT AS event_offer_count,
+            v_new_count::INT AS new_count,
+            v_duplicate_count::INT AS duplicate_count;
+    END IF;
 END;
 $BODY$;

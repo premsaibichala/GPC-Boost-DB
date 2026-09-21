@@ -48,6 +48,7 @@ BEGIN
               )
 	     AND pld."isActive" = TRUE
 	     AND pld."startDate" <= CURRENT_DATE
+	     AND pld."endDate" >= CURRENT_DATE
       )
       AND NOT EXISTS (
             SELECT 1
@@ -56,6 +57,7 @@ BEGIN
               AND p."country" = ppr."country"
 	      AND ppr."isActive" = TRUE
 	      AND ppr."startDate" <= CURRENT_DATE
+        AND ppr."endDate" >= CURRENT_DATE
       );
 	RAISE NOTICE 'Finished updating tProducts (Deactivate) at: %', clock_timestamp();
  
@@ -81,6 +83,7 @@ BEGIN
               )
              AND pld."isActive" = TRUE
              AND pld."startDate" <= CURRENT_DATE
+              AND pld."endDate" >= CURRENT_DATE
       );
        UPDATE "tProducts" p
     SET "isActive" = TRUE
@@ -92,6 +95,7 @@ BEGIN
               AND p."country" = ppr."country"
 	      AND ppr."isActive" = TRUE
 	      AND ppr."startDate" <= CURRENT_DATE
+        AND ppr."endDate" >= CURRENT_DATE
       );
  
 	RAISE NOTICE 'Finished updating tProducts (Activate) at: %', clock_timestamp();
