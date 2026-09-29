@@ -80,7 +80,7 @@ BEGIN
     -- 2. Update Event Offer Detail (same CTE logic as given)
     -- ======================================================
 
-    WITH "offerSkus" AS (
+    WITH "offerSkus" AS MATERIALIZED (
         SELECT "sku" FROM "tEventOfferDetail"
         WHERE "offerId" = p_offer_id AND "offerNo" = p_offer_no
     ),
@@ -727,7 +727,7 @@ WHERE o."offerId" = s."offerId"
       AND "offerNumber" = p_offer_no
       AND "OfferTypeId" = p_offer_type_id;
 
-     WITH "offerSkus" AS (
+     WITH "offerSkus" AS MATERIALIZED (
          SELECT "sku" FROM "tEventOfferDetail"
          WHERE "offerId" = p_offer_id AND "offerNo" = p_offer_no
      ),
@@ -1372,7 +1372,7 @@ WHERE o."offerId" = s."offerId"
       AND "offerNumber" = p_offer_no
       AND "OfferTypeId" = p_offer_type_id;
 
-     WITH "offerSkus" AS (
+     WITH "offerSkus" AS MATERIALIZED (
          SELECT "sku" FROM "tEventOfferDetail"
          WHERE "offerId" = p_offer_id AND "offerNo" = p_offer_no
      ),
@@ -2011,7 +2011,7 @@ WHERE o."offerId" = s."offerId"
     WHERE "offerId" = p_offer_id
       AND "offerNumber" = p_offer_no
       AND "OfferTypeId" = p_offer_type_id;
-     WITH "offerSkus" AS (
+     WITH "offerSkus" AS MATERIALIZED (
          SELECT "sku" FROM "tEventOfferDetail"
          WHERE "offerId" = p_offer_id AND "offerNo" = p_offer_no
      ),
@@ -2669,7 +2669,7 @@ END IF;
       AND "offerNumber" = p_offer_no
       AND "OfferTypeId" = p_offer_type_id;
 
-       WITH "offerSkus" AS (
+       WITH "offerSkus" AS MATERIALIZED (
            SELECT "sku" FROM "tEventOfferDetail"
            WHERE "offerId" = p_offer_id AND "offerNo" = p_offer_no
        ),

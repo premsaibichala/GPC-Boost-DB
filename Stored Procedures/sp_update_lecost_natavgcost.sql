@@ -62,7 +62,7 @@ BEGIN
     ----------------------------------------------------------------------
     -- STEP 1 -> UPDATE COSTS IN tEventOfferDetail
     ----------------------------------------------------------------------
-    WITH "offerSkus" AS (
+    WITH "offerSkus" AS MATERIALIZED (
         SELECT "sku" FROM "tEventOfferDetail"
         WHERE "offerId" = p_offerId AND "offerNo" = p_offerNo
     ),

@@ -521,6 +521,12 @@ ELSE
       LIMIT ' || p_page_size || '
     ';
 END IF;
+    -- TEMP DEBUG: print the generated SQL and the resolved v_order/v_where so we
+    -- can see exactly what gets executed when p_is_edited = TRUE and a sort flag
+    -- is set. Remove once the sort issue is diagnosed.
+    RAISE NOTICE 'v_order = %', v_order;
+    RAISE NOTICE 'v_where = %', v_where;
+    RAISE NOTICE 'v_sql = %', v_sql;
     -- execute
     RETURN QUERY EXECUTE v_sql USING COALESCE(v_duplicate_skus, ARRAY[]::text[]);
     GET DIAGNOSTICS v_row_count = ROW_COUNT;
