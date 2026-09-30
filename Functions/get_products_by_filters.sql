@@ -1,61 +1,51 @@
-﻿-- FUNCTION: public.get_products_by_filters(...)
--- Adds 3 new parameters: p_not_skus, p_not_part_numbers, p_not_supplier_names
--- Also adds the missing positive "supplierName" filter for p_supplier_names (was accepted but never used).
--- Wildcard ('*' -> '%') and '!' (NOT) parsing happens on the C# side (EventOfferService.ExtractWildcardFilter);
--- this function just consumes the already-normalized include/exclude arrays.
---
--- FIX: sku / partNo / supplierId / supplierName filters (and their NOT counterparts) used to
--- unconditionally append '%' to every value, which silently turned a leading wildcard (e.g. "%RED")
--- into a "contains" match ("%RED%") instead of an "ends with" match. Now '%' is only appended when
--- the caller did not already supply one, preserving the legacy implicit-prefix behaviour for plain
--- values while respecting exactly what the caller placed when '*' was used.
-
-DROP FUNCTION IF EXISTS public.get_products_by_filters(integer, text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], boolean, boolean, boolean, boolean, integer, integer, integer, timestamp without time zone, boolean, boolean, boolean, boolean, boolean, boolean, boolean, integer, integer);
-
+﻿-- FUNCTION: public.get_products_by_filters(integer, text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], boolean, boolean, boolean, boolean, integer, integer, integer, timestamp without time zone, boolean, boolean, boolean, boolean, boolean, boolean, boolean, integer, integer, boolean)
+DROP FUNCTION IF EXISTS public.get_products_by_filters(integer, text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], text[], boolean, boolean, boolean, boolean, integer, integer, integer, timestamp without time zone, boolean, boolean, boolean, boolean, boolean, boolean, boolean, integer, integer);
+ 
 CREATE OR REPLACE FUNCTION public.get_products_by_filters(
-    p_event_id integer,
-    p_skus text[] DEFAULT NULL::text[],
-    p_part_numbers text[] DEFAULT NULL::text[],
-    p_supplier_ids text[] DEFAULT NULL::text[],
-    p_not_supplier_ids text[] DEFAULT NULL::text[],
-    p_supplier_names text[] DEFAULT NULL::text[],
-    p_brands text[] DEFAULT NULL::text[],
-    p_not_brands text[] DEFAULT NULL::text[],
-    p_ic1 text[] DEFAULT NULL::text[],
-    p_not_ic1 text[] DEFAULT NULL::text[],
-    p_ic2 text[] DEFAULT NULL::text[],
-    p_not_ic2 text[] DEFAULT NULL::text[],
-    p_ic3 text[] DEFAULT NULL::text[],
-    p_not_ic3 text[] DEFAULT NULL::text[],
-    p_ic4 text[] DEFAULT NULL::text[],
-    p_not_ic4 text[] DEFAULT NULL::text[],
-    p_part_descriptions text[] DEFAULT NULL::text[],
-    p_not_skus text[] DEFAULT NULL::text[],
-    p_not_part_numbers text[] DEFAULT NULL::text[],
-    p_not_supplier_names text[] DEFAULT NULL::text[],
-    p_selected boolean DEFAULT false,
-    p_new boolean DEFAULT false,
-    p_duplicates boolean DEFAULT false,
-    p_is_edited boolean DEFAULT NULL::boolean,
-    p_offerid integer DEFAULT NULL::integer,
-    p_offerno integer DEFAULT NULL::integer,
-    p_offertypeid integer DEFAULT NULL::integer,
-    p_searchedat timestamp without time zone DEFAULT NULL::timestamp without time zone,
-    p_sort_sku_desc boolean DEFAULT NULL::boolean,
-    p_sort_partno_desc boolean DEFAULT NULL::boolean,
-    p_sort_desc_desc boolean DEFAULT NULL::boolean,
-    p_sort_brand_desc boolean DEFAULT NULL::boolean,
-    p_sort_ic4_desc boolean DEFAULT NULL::boolean,
-    p_sort_showroom_desc boolean DEFAULT NULL::boolean,
-    p_sort_clearance_desc boolean DEFAULT NULL::boolean,
-    p_page_number integer DEFAULT 1,
-    p_page_size integer DEFAULT 100)
- RETURNS TABLE(sku text, part_no text, description text, brand text, itemclass4 text, showroomindicator text, clearance text, categorymanager text, itemclass1 text, country text, isnew boolean, isselected boolean, isunselected boolean, isskuactive boolean, isduplicate boolean, duplicate_offer_name text, duplicate_offer_id integer, duplicate_page integer, duplicate_page_position integer, total_count integer, event_offer_count integer, new_count integer, duplicate_count integer)
+	p_event_id integer,
+	p_skus text[] DEFAULT NULL::text[],
+	p_part_numbers text[] DEFAULT NULL::text[],
+	p_supplier_ids text[] DEFAULT NULL::text[],
+	p_not_supplier_ids text[] DEFAULT NULL::text[],
+	p_supplier_names text[] DEFAULT NULL::text[],
+	p_brands text[] DEFAULT NULL::text[],
+	p_not_brands text[] DEFAULT NULL::text[],
+	p_ic1 text[] DEFAULT NULL::text[],
+	p_not_ic1 text[] DEFAULT NULL::text[],
+	p_ic2 text[] DEFAULT NULL::text[],
+	p_not_ic2 text[] DEFAULT NULL::text[],
+	p_ic3 text[] DEFAULT NULL::text[],
+	p_not_ic3 text[] DEFAULT NULL::text[],
+	p_ic4 text[] DEFAULT NULL::text[],
+	p_not_ic4 text[] DEFAULT NULL::text[],
+	p_part_descriptions text[] DEFAULT NULL::text[],
+	p_not_skus text[] DEFAULT NULL::text[],
+	p_not_part_numbers text[] DEFAULT NULL::text[],
+	p_not_supplier_names text[] DEFAULT NULL::text[],
+	p_selected boolean DEFAULT false,
+	p_new boolean DEFAULT false,
+	p_duplicates boolean DEFAULT false,
+    p_is_clash boolean DEFAULT NULL::boolean,
+	p_is_edited boolean DEFAULT NULL::boolean,
+	p_offerid integer DEFAULT NULL::integer,
+	p_offerno integer DEFAULT NULL::integer,
+	p_offertypeid integer DEFAULT NULL::integer,
+	p_searchedat timestamp without time zone DEFAULT NULL::timestamp without time zone,
+	p_sort_sku_desc boolean DEFAULT NULL::boolean,
+	p_sort_partno_desc boolean DEFAULT NULL::boolean,
+	p_sort_desc_desc boolean DEFAULT NULL::boolean,
+	p_sort_brand_desc boolean DEFAULT NULL::boolean,
+	p_sort_ic4_desc boolean DEFAULT NULL::boolean,
+	p_sort_showroom_desc boolean DEFAULT NULL::boolean,
+	p_sort_clearance_desc boolean DEFAULT NULL::boolean,
+	p_page_number integer DEFAULT 1,
+	p_page_size integer DEFAULT 100)
+    RETURNS TABLE(sku text, part_no text, description text, brand text, itemclass4 text, showroomindicator text, clearance text, categorymanager text, itemclass1 text, country text, isnew boolean, isselected boolean, isunselected boolean, isskuactive boolean, isduplicate boolean, isclash boolean, duplicate_offer_name text, duplicate_offer_id integer, duplicate_page integer, duplicate_page_position integer, clash_event_id integer, clash_event_name text, clash_event_start_date timestamp without time zone, clash_event_end_date timestamp without time zone, clash_page integer, clash_page_position integer, clash_offer_id integer, total_count integer, event_offer_count integer, new_count integer, duplicate_count integer, clash_count integer)
     LANGUAGE 'plpgsql'
     COST 100
     VOLATILE PARALLEL UNSAFE
     ROWS 1000
-
+ 
 AS $BODY$
 DECLARE
     v_sql TEXT;
@@ -69,22 +59,25 @@ DECLARE
     )';
     v_order TEXT := ' ORDER BY e."offerNo" ';  -- default
     v_offset INT := (p_page_number - 1) * p_page_size;
-	v_searched_at_date_literal TEXT;
+    v_searched_at_date_literal TEXT;
     v_isnew_cond TEXT;   -- boolean condition as TEXT
-	v_new_count INT;
-	v_eventOffer_count INT;
-	v_new_count_sql TEXT := '';
-	v_offer_skus_subquery TEXT;   -- SKUs that belong to the current offer (edited filter)
-	v_where_new_skus TEXT := ' WHERE UPPER(country) = UPPER((SELECT country FROM "tEvent"  WHERE "eventId" = ' || p_event_id || ')) AND "isActive" = TRUE ';
+    v_new_count INT;
+    v_eventOffer_count INT;
+    v_new_count_sql TEXT := '';
+    v_offer_skus_subquery TEXT;   -- SKUs that belong to the current offer (edited filter)
+    v_where_new_skus TEXT := ' WHERE UPPER(country) = UPPER((SELECT country FROM "tEvent"  WHERE "eventId" = ' || p_event_id || ')) AND "isActive" = TRUE ';
     v_company TEXT;
     v_duplicate_where TEXT;      -- extra exclusion condition mirroring FindDuplicateSKUsAsync
+    v_clash_skus TEXT[];         -- subset of v_filtered_skus that clash (mirrors v_duplicate_skus)
+    v_clash_count INT;         -- count of filtered SKUs that clash (see v_clash_where)
+    v_clash_where TEXT;        -- SKU clash condition: same offer type in other events within +/-4 weeks
     v_filtered_skus TEXT[];      -- SKUs remaining after the filter step, computed BEFORE duplicate check
     v_duplicate_skus TEXT[];     -- subset of v_filtered_skus found to be duplicates
     v_duplicate_count INT;       -- count of v_duplicate_skus
     v_row_count INT;             -- rows returned by the final paginated query
 BEGIN
     SELECT company INTO v_company FROM "tEvent" WHERE "eventId" = p_event_id;
-	   v_searched_at_date_literal := CASE
+       v_searched_at_date_literal := CASE
         WHEN p_searchedAt IS NULL THEN 'NULL'
         ELSE quote_literal(p_searchedAt::timestamp)    -- e.g. '2025-11-29'
     END;
@@ -93,7 +86,6 @@ BEGIN
     v_isnew_cond :=
         'f."createdAt" IS NOT NULL'
         || ' AND f."createdAt"::timestamp > ' || v_searched_at_date_literal;
-
     -- SKUs that belong to the current offer (type 3 ignores offerNo)
     IF p_offerTypeId = 3 THEN
         v_offer_skus_subquery := 'SELECT "sku" FROM "tEventOfferDetail" WHERE "offerId" = '
@@ -104,7 +96,6 @@ BEGIN
             || ' AND "offerNo" = ' || COALESCE(p_offerNo::text, 'NULL')
             || ' AND "isSkuActive" = FALSE';
     END IF;
-
     -- Active / edited filter applied INSIDE the CTE so total_count is accurate.
     --   p_is_edited = TRUE  -> active products PLUS inactive products that exist in this offer
     --   p_is_edited = FALSE -> active products only (offer detail irrelevant to inclusion)
@@ -113,22 +104,20 @@ BEGIN
     ELSE
         v_where := v_where || ' AND "isActive" = TRUE ';
     END IF;
-
-	-- Count event offers
-	IF p_offerTypeId = 3 THEN
-	    SELECT COUNT(*)
-	    INTO v_eventOffer_count
-	    FROM "tEventOfferDetail"
-	    WHERE "offerId" = p_offerId;
-	ELSE
-	    SELECT COUNT(*)
-	    INTO v_eventOffer_count
-	    FROM "tEventOfferDetail"
-	    WHERE "offerId" = p_offerId
-	      AND "offerNo" = p_offerNo;
-	END IF;
-	-- Count new products
-
+    -- Count event offers
+    IF p_offerTypeId = 3 THEN
+        SELECT COUNT(*)
+        INTO v_eventOffer_count
+        FROM "tEventOfferDetail"
+        WHERE "offerId" = p_offerId;
+    ELSE
+        SELECT COUNT(*)
+        INTO v_eventOffer_count
+        FROM "tEventOfferDetail"
+        WHERE "offerId" = p_offerId
+          AND "offerNo" = p_offerNo;
+    END IF;
+    -- Count new products
     --------------------------------------------------------
     -- Duplicate SKU detection (mirrors FindDuplicateSKUsAsync):
     --   * offerId is NULL/0            -> any other offer of the same offerTypeId with this SKU is a duplicate
@@ -137,7 +126,14 @@ BEGIN
     --   * otherwise                    -> duplicate unless same offerId AND same offerNo
     --------------------------------------------------------
     v_duplicate_where := ' d."eventId" = ' || p_event_id || ' AND o."OfferTypeId" = ' || COALESCE(p_offerTypeId::text, 'NULL');
-
+    -- SKU clash (separate from the duplicate check above): offers of the same offer type in OTHER
+    -- events (same country) whose start date is within +/-4 weeks of the current event's start date,
+    -- or whose end date is within +/-4 weeks of the current event's end date.
+    -- Used by the "clash" lateral join, which joins "tEvent" ev (offer's event) and "tEvent" ce (current event).
+    v_clash_where := ' d."eventId" <> ' || p_event_id
+        || ' AND UPPER(ev.country) = UPPER(ce.country)'
+        || ' AND (ev."startDate"::date BETWEEN ce."startDate"::date - 28 AND ce."startDate"::date + 28'
+        || ' OR ev."endDate"::date BETWEEN ce."endDate"::date - 28 AND ce."endDate"::date + 28)';
     IF COALESCE(p_offerId, 0) = 0 THEN
         NULL; -- no exclusion: any match on offerTypeId is a duplicate
     ELSIF p_offerTypeId IN (5, 25) THEN
@@ -150,8 +146,7 @@ BEGIN
         v_duplicate_where := v_duplicate_where
             || ' AND o."offerId" <> ' || p_offerId;
     END IF;
-
-	IF p_skus IS NOT NULL AND array_length(p_skus, 1) > 0 THEN
+    IF p_skus IS NOT NULL AND array_length(p_skus, 1) > 0 THEN
         v_where := v_where || ' AND (' ||
             array_to_string(ARRAY(SELECT format('"sku" ILIKE %L', CASE WHEN position('%' in s) > 0 THEN s ELSE s || '%' END) FROM unnest(p_skus) s), ' OR ')
             || ') ';
@@ -202,7 +197,7 @@ BEGIN
             array_to_string(ARRAY(SELECT format('"brand" ILIKE %L', s) FROM unnest(p_not_brands) s), ' OR ')
             || ') ';
     END IF;
-	 IF p_ic1 IS NOT NULL AND array_length(p_ic1, 1) > 0 THEN
+     IF p_ic1 IS NOT NULL AND array_length(p_ic1, 1) > 0 THEN
         v_where := v_where || ' AND (' ||
             array_to_string(
                 ARRAY(SELECT format('"itemClass1" ILIKE %L', s) FROM unnest(p_ic1) s),
@@ -268,8 +263,7 @@ BEGIN
             ) || ') ';
     END IF;
 
-
-	 IF p_part_descriptions IS NOT NULL AND array_length(p_part_descriptions, 1) > 0 THEN
+     IF p_part_descriptions IS NOT NULL AND array_length(p_part_descriptions, 1) > 0 THEN
         v_where := v_where || ' AND (' ||
             array_to_string(
                 ARRAY(SELECT format('"description" ILIKE %L', '%' || s || '%') FROM unnest(p_part_descriptions) s),
@@ -299,13 +293,11 @@ BEGIN
                        || ' AND (' || v_isnew_cond || ')';
     -- Execute the new count SQL
     EXECUTE v_new_count_sql INTO v_new_count;
-
     --------------------------------------------------------
     -- Step 1: get the SKUs that survive the filters above (v_where is now final)
     --------------------------------------------------------
     EXECUTE 'SELECT array_agg("sku") FROM "tProducts" ' || v_where
         INTO v_filtered_skus;
-
     --------------------------------------------------------
     -- Step 2: check duplicates ONLY among those filtered SKUs (mirrors
     -- FindDuplicateSKUsAsync, which is called with the already-filtered SKU list)
@@ -327,9 +319,28 @@ BEGIN
     ELSE
         v_duplicate_skus := ARRAY[]::text[];
     END IF;
-
     v_duplicate_count := COALESCE(array_length(v_duplicate_skus, 1), 0);
-
+    -- Clash count: distinct filtered SKUs used in a same-type offer in another event within +/-4 weeks
+    IF v_filtered_skus IS NOT NULL AND array_length(v_filtered_skus, 1) > 0 THEN
+        EXECUTE '
+            SELECT array_agg(DISTINCT d."sku")
+            FROM "tEventOfferDetail" d
+            JOIN "tEventOffer" o
+              ON d."eventId" = o."eventId"
+             AND d."page" = o."page"
+             AND d."pagePosition" = o."pagePosition"
+             AND d."offerId" = o."offerId"
+             AND d."offerNo" = o."offerNumber"
+            JOIN "tEvent" ev ON ev."eventId" = o."eventId"
+            JOIN "tEvent" ce ON ce."eventId" = ' || p_event_id || '
+            WHERE d."sku" = ANY($1)
+              AND ' || v_clash_where
+        INTO v_clash_skus
+        USING v_filtered_skus;
+    ELSE
+        v_clash_skus := ARRAY[]::text[];
+    END IF;
+    v_clash_count := COALESCE(array_length(v_clash_skus, 1), 0);
     --------------------------------------------------------
     -- Final SQL with paging
     --------------------------------------------------------
@@ -362,6 +373,40 @@ v_sql := '
                  OR (pld."priceList" IN (''498'',''499'') AND pld."country" = ''NZ'')
                   )
         GROUP BY f."sku", f."country"
+    ),
+    -- one row per duplicate SKU (same event), computed once instead of per-row lateral
+    dup_info AS (
+        SELECT DISTINCT ON (d."sku")
+               d."sku", o."offerName", o."page", o."pagePosition", o."offerId"
+        FROM "tEventOfferDetail" d
+        JOIN "tEventOffer" o
+          ON d."eventId" = o."eventId"
+         AND d."page" = o."page"
+         AND d."pagePosition" = o."pagePosition"
+         AND d."offerId" = o."offerId"
+         AND d."offerNo" = o."offerNumber"
+        WHERE d."sku" = ANY($1)
+          AND ' || v_duplicate_where || '
+        ORDER BY d."sku"
+    ),
+    -- one row per clashing SKU (other events within +/-4 weeks), earliest event first
+    clash_info AS (
+        SELECT DISTINCT ON (d."sku")
+               d."sku", o."page", o."pagePosition", o."offerId",
+               ev."eventId" AS "clashEventId", ev."eventDescription" AS "clashEventName",
+               ev."startDate" AS "clashStartDate", ev."endDate" AS "clashEndDate"
+        FROM "tEventOfferDetail" d
+        JOIN "tEventOffer" o
+          ON d."eventId" = o."eventId"
+         AND d."page" = o."page"
+         AND d."pagePosition" = o."pagePosition"
+         AND d."offerId" = o."offerId"
+         AND d."offerNo" = o."offerNumber"
+        JOIN "tEvent" ev ON ev."eventId" = o."eventId"
+        JOIN "tEvent" ce ON ce."eventId" = ' || p_event_id || '
+        WHERE d."sku" = ANY($2)
+          AND ' || v_clash_where || '
+        ORDER BY d."sku", ev."startDate"
     )
    SELECT
     f."sku"::TEXT,
@@ -387,48 +432,43 @@ v_sql := '
          THEN TRUE ELSE FALSE END AS isUnselected,
     COALESCE(e."isSkuActive", TRUE) AS isSkuActive,
     CASE WHEN f."sku" = ANY($1) THEN TRUE ELSE FALSE END AS isDuplicate,
-    -- 15, 16, 17: COUNTS
-	dup."offerName"::TEXT AS duplicate_offer_name,
-	dup."offerId"::INT AS duplicate_offer_id,
-	dup."page"::INT AS duplicate_page,
-	dup."pagePosition"::INT AS duplicate_page_position,
+    CASE WHEN f."sku" = ANY($2) THEN TRUE ELSE FALSE END AS isclash,
+    dup."offerName"::TEXT AS duplicate_offer_name,
+    dup."offerId"::INT AS duplicate_offer_id,
+    dup."page"::INT AS duplicate_page,
+    dup."pagePosition"::INT AS duplicate_page_position,
+    clash."clashEventId"::INT AS clash_event_id,
+    clash."clashEventName"::TEXT AS clash_event_name,
+    clash."clashStartDate"::TIMESTAMP AS clash_event_start_date,
+    clash."clashEndDate"::TIMESTAMP AS clash_event_end_date,
+    clash."page"::INT AS clash_page,
+    clash."pagePosition"::INT AS clash_page_position,
+    clash."offerId"::INT AS clash_offer_id,
     f.total_count::INT,
     '||v_eventOffer_count||'::INT AS event_offer_count,
-	'||v_new_count||'::INT AS new_count,
-	'||v_duplicate_count||'::INT AS duplicate_count
-
+    '||v_new_count||'::INT AS new_count,
+    '||v_duplicate_count||'::INT AS duplicate_count,
+    '||v_clash_count||'::INT AS clash_count
     FROM filtered f
     LEFT JOIN "tEventOfferDetail" e
            ON
-		   f."sku" = e."sku"
-		   AND e."offerId" = ' || COALESCE(p_offerId::text, 'NULL') || '
+           f."sku" = e."sku"
+           AND e."offerId" = ' || COALESCE(p_offerId::text, 'NULL') || '
     LEFT JOIN clearance_flags cpl
            ON cpl."sku" = f."sku" AND cpl."country" = f."country"
-
-    LEFT JOIN LATERAL (
-        SELECT o."offerName", o."page", o."pagePosition",o."offerId"
-        FROM "tEventOfferDetail" d
-        JOIN "tEventOffer" o
-          ON d."eventId" = o."eventId"
-         AND d."page" = o."page"
-         AND d."pagePosition" = o."pagePosition"
-         AND d."offerId" = o."offerId"
-         AND d."offerNo" = o."offerNumber"
-        WHERE d."sku" = f."sku"
-          AND f."sku" = ANY($1)
-          AND ' || v_duplicate_where || '
-        LIMIT 1
-    ) dup ON TRUE
+    LEFT JOIN dup_info dup ON dup."sku" = f."sku"
+    LEFT JOIN clash_info clash ON clash."sku" = f."sku"
   WHERE
       (' || (CASE WHEN p_selected THEN 'e."sku" IS NOT NULL' ELSE 'TRUE' END) || ')
   AND (' || (CASE WHEN p_new THEN v_isnew_cond   ELSE 'TRUE' END) || ')
   AND (' || (CASE WHEN p_duplicates THEN 'f."sku" = ANY($1)' ELSE 'NOT (f."sku" = ANY($1))' END) || ')
+  AND (' || (CASE WHEN p_is_clash IS NULL THEN 'TRUE' WHEN p_is_clash THEN 'f."sku" = ANY($2)' ELSE 'NOT (f."sku" = ANY($2))' END) || ')
   '|| v_order ||'
       OFFSET ' || v_offset || '
       LIMIT ' || p_page_size || '
     ';
 ELSE
-	 v_sql := '
+     v_sql := '
     WITH filtered AS (
         SELECT *,
                COUNT(*) OVER() AS total_count
@@ -455,6 +495,40 @@ ELSE
                  OR (pld."priceList" IN (''498'',''499'') AND pld."country" = ''NZ'')
                   )
         GROUP BY f."sku", f."country"
+    ),
+    -- one row per duplicate SKU (same event), computed once instead of per-row lateral
+    dup_info AS (
+        SELECT DISTINCT ON (d."sku")
+               d."sku", o."offerName", o."page", o."pagePosition", o."offerId"
+        FROM "tEventOfferDetail" d
+        JOIN "tEventOffer" o
+          ON d."eventId" = o."eventId"
+         AND d."page" = o."page"
+         AND d."pagePosition" = o."pagePosition"
+         AND d."offerId" = o."offerId"
+         AND d."offerNo" = o."offerNumber"
+        WHERE d."sku" = ANY($1)
+          AND ' || v_duplicate_where || '
+        ORDER BY d."sku"
+    ),
+    -- one row per clashing SKU (other events within +/-4 weeks), earliest event first
+    clash_info AS (
+        SELECT DISTINCT ON (d."sku")
+               d."sku", o."page", o."pagePosition", o."offerId",
+               ev."eventId" AS "clashEventId", ev."eventDescription" AS "clashEventName",
+               ev."startDate" AS "clashStartDate", ev."endDate" AS "clashEndDate"
+        FROM "tEventOfferDetail" d
+        JOIN "tEventOffer" o
+          ON d."eventId" = o."eventId"
+         AND d."page" = o."page"
+         AND d."pagePosition" = o."pagePosition"
+         AND d."offerId" = o."offerId"
+         AND d."offerNo" = o."offerNumber"
+        JOIN "tEvent" ev ON ev."eventId" = o."eventId"
+        JOIN "tEvent" ce ON ce."eventId" = ' || p_event_id || '
+        WHERE d."sku" = ANY($2)
+          AND ' || v_clash_where || '
+        ORDER BY d."sku", ev."startDate"
     )
    SELECT
     f."sku"::TEXT,
@@ -478,44 +552,40 @@ ELSE
          THEN TRUE ELSE FALSE END AS isSelected,
     CASE WHEN e."sku" IS NULL
          THEN TRUE ELSE FALSE END AS isUnselected,
-	COALESCE(e."isSkuActive", TRUE) as isSkuActive,
+    COALESCE(e."isSkuActive", TRUE) as isSkuActive,
     CASE WHEN f."sku" = ANY($1) THEN TRUE ELSE FALSE END AS isDuplicate,
-    -- 15, 16, 17: COUNTS
+    CASE WHEN f."sku" = ANY($2) THEN TRUE ELSE FALSE END AS isclash,
     dup."offerName"::TEXT AS duplicate_offer_name,
-	dup."offerId"::INT AS duplicate_offer_id,
-	dup."page"::INT AS duplicate_page,
-	dup."pagePosition"::INT AS duplicate_page_position,
+    dup."offerId"::INT AS duplicate_offer_id,
+    dup."page"::INT AS duplicate_page,
+    dup."pagePosition"::INT AS duplicate_page_position,
+    clash."clashEventId"::INT AS clash_event_id,
+    clash."clashEventName"::TEXT AS clash_event_name,
+    clash."clashStartDate"::TIMESTAMP AS clash_event_start_date,
+    clash."clashEndDate"::TIMESTAMP AS clash_event_end_date,
+    clash."page"::INT AS clash_page,
+    clash."pagePosition"::INT AS clash_page_position,
+    clash."offerId"::INT AS clash_offer_id,
     f.total_count::INT,
     '||v_eventOffer_count||'::INT AS event_offer_count,
-	'||v_new_count||'::INT AS new_count,
-	'||v_duplicate_count||'::INT AS duplicate_count
+    '||v_new_count||'::INT AS new_count,
+    '||v_duplicate_count||'::INT AS duplicate_count,
+    '||v_clash_count||'::INT AS clash_count
     FROM filtered f
     LEFT JOIN "tEventOfferDetail" e
            ON
-		   f."sku" = e."sku"
-		   AND e."offerId" = ' || COALESCE(p_offerId::text, 'NULL') || '
+           f."sku" = e."sku"
+           AND e."offerId" = ' || COALESCE(p_offerId::text, 'NULL') || '
            AND e."offerNo" = ' || COALESCE(p_offerNo::text, 'NULL') || '
     LEFT JOIN clearance_flags cpl
            ON cpl."sku" = f."sku" AND cpl."country" = f."country"
-
-    LEFT JOIN LATERAL (
-        SELECT o."offerName", o."page", o."pagePosition",o."offerId"
-        FROM "tEventOfferDetail" d
-        JOIN "tEventOffer" o
-          ON d."eventId" = o."eventId"
-         AND d."page" = o."page"
-         AND d."pagePosition" = o."pagePosition"
-         AND d."offerId" = o."offerId"
-         AND d."offerNo" = o."offerNumber"
-        WHERE d."sku" = f."sku"
-          AND f."sku" = ANY($1)
-          AND ' || v_duplicate_where || '
-        LIMIT 1
-    ) dup ON TRUE
+    LEFT JOIN dup_info dup ON dup."sku" = f."sku"
+    LEFT JOIN clash_info clash ON clash."sku" = f."sku"
   WHERE
       (' || (CASE WHEN p_selected THEN 'e."sku" IS NOT NULL' ELSE 'TRUE' END) || ')
   AND (' || (CASE WHEN p_new THEN v_isnew_cond   ELSE 'TRUE' END) || ')
   AND (' || (CASE WHEN p_duplicates THEN 'f."sku" = ANY($1)' ELSE 'NOT (f."sku" = ANY($1))' END) || ')
+  AND (' || (CASE WHEN p_is_clash IS NULL THEN 'TRUE' WHEN p_is_clash THEN 'f."sku" = ANY($2)' ELSE 'NOT (f."sku" = ANY($2))' END) || ')
   '|| v_order ||'
       OFFSET ' || v_offset || '
       LIMIT ' || p_page_size || '
@@ -528,9 +598,8 @@ END IF;
     RAISE NOTICE 'v_where = %', v_where;
     RAISE NOTICE 'v_sql = %', v_sql;
     -- execute
-    RETURN QUERY EXECUTE v_sql USING COALESCE(v_duplicate_skus, ARRAY[]::text[]);
+    RETURN QUERY EXECUTE v_sql USING COALESCE(v_duplicate_skus, ARRAY[]::text[]), COALESCE(v_clash_skus, ARRAY[]::text[]);
     GET DIAGNOSTICS v_row_count = ROW_COUNT;
-
     -- If every filtered SKU is a duplicate (search count == duplicate count) and the
     -- p_duplicates/p_selected/p_new filters exclude them all, the query above returns
     -- no rows even though matches exist. Surface the counts via a single counts-only row
@@ -540,12 +609,14 @@ END IF;
         SELECT
             NULL::TEXT, NULL::TEXT, NULL::TEXT, NULL::TEXT, NULL::TEXT, NULL::TEXT,
             NULL::TEXT, NULL::TEXT, NULL::TEXT, NULL::TEXT,
-            FALSE, FALSE, FALSE, FALSE, FALSE,
+            FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,
             NULL::TEXT, NULL::INT, NULL::INT, NULL::INT,
+            NULL::INT, NULL::TEXT, NULL::TIMESTAMP, NULL::TIMESTAMP, NULL::INT, NULL::INT, NULL::INT,
             array_length(v_filtered_skus, 1)::INT AS total_count,
             v_eventOffer_count::INT AS event_offer_count,
             v_new_count::INT AS new_count,
-            v_duplicate_count::INT AS duplicate_count;
+            v_duplicate_count::INT AS duplicate_count,
+            v_clash_count::INT AS clash_count;
     END IF;
 END;
 $BODY$;
