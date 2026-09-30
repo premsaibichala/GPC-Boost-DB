@@ -1,31 +1,52 @@
--- PROCEDURE: public.sp_undo_bid_offer(integer, integer, text)
-
--- DROP PROCEDURE IF EXISTS public.sp_undo_bid_offer(integer, integer, text);
-
 CREATE OR REPLACE PROCEDURE public.sp_undo_bid_offer(
-	IN p_bid_id integer,
-	IN p_offer_id integer,
-	IN p_updated_by text)
+    IN p_offer_ids int)
 LANGUAGE 'plpgsql'
 AS $BODY$
 BEGIN
-    -- Remove the mud map cell that was displaying this offer.
-    DELETE FROM "tMudMapDetail"
-    WHERE "eventOfferId" = p_offer_id;
+    -- Move the offers back to unassigned (page 0, position 0).
+    UPDATE "tEventOffer"
+    SET "page" = 0,
+        "pagePosition" = 0
+    WHERE "offerId" = p_offer_ids;
 
-    -- Remove the offer's detail and header records.
-    DELETE FROM "tEventOfferDetail"
-    WHERE "offerId" = p_offer_id;
+    UPDATE "tEventOfferDetail"
+    SET "page" = 0,
+        "pagePosition" = 0
+    WHERE "offerId" = p_offer_ids;
 
-    DELETE FROM "tEventOffer"
-    WHERE "offerId" = p_offer_id;
+    UPDATE "tEventOfferSearchHistory"
+    SET "pageId" = 0,
+        "positionId" = 0
+    WHERE "eventOfferId" = p_offer_ids;
 
-    -- Reset the bid back to unapproved / unselected.
-    UPDATE "tBids"
-    SET "isApproved" = false,
-        "pageSelection" = NULL,
-        "updatedBy" = p_updated_by,
-        "updatedAt" = now()
-    WHERE "bidId" = p_bid_id;
+    -- Clear the mud map cells that were displaying these offers.
+    UPDATE "tMudMapDetail" mmd
+    SET
+        "eventOfferId"     = NULL,
+        "offerName"        = NULL,
+        "offerType"        = NULL,
+        "everydayPrice"    = NULL,
+        "isReserved"       = FALSE,
+        "advertisedPrice"  = NULL,
+        "saveValue"        = NULL,
+        "savePercent"      = NULL,
+        "message"          = NULL,
+        "partNumber"       = NULL,
+        "clearance"        = NULL,
+        "multiBuy"         = NULL,
+        "combo"            = NULL,
+        "new"              = NULL,
+        "loyality"         = NULL,
+        "isActive"         = FALSE,
+        "userName"         = NULL,
+        "requiredQuantity" = NULL,
+        "fromPrice"        = NULL,
+        "purchaseQuantity" = NULL,
+        "freeQuantity"     = NULL,
+        "lockedAt"         = NULL,
+        "offerTypeId"      = NULL
+    FROM "tEventOffer" eo,
+         "tEvent" ev
+    WHERE mmd."eventOfferId" = eo."offerId";
 END;
 $BODY$;
