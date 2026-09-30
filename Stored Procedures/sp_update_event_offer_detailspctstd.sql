@@ -47,6 +47,7 @@ BEGIN
             pld."sku",
             pld."priceList",
             pld."priceListPrice",
+            pld."endDate",
             pld."country",
             pld."company",
             ROW_NUMBER() OVER (
@@ -78,18 +79,55 @@ BEGIN
         t.au_primary_price AS au_primary,
         t.au_fallback_price_036 AS au_fallback_036,
         t.nz_primary_price AS nz_primary,
-        t.nz_fallback_price_492 AS nz_fallback_492
+        t.nz_fallback_price_492 AS nz_fallback_492,
+        -- endDate of the current price-list row that the base RRP waterfall selects
+        -- (special -> primary -> fallback). NULL when the waterfall falls through to
+        -- pricePoint6, in which case the current tPriceProductRules endDate is used.
+        CASE
+            WHEN t."country" = 'AU' THEN
+                CASE
+                    WHEN LEAST(t.clearance_price_050, t.priceList184) IS NOT NULL THEN
+                        CASE
+                            WHEN t.clearance_price_050 IS NULL THEN t."priceList184EndDate"
+                            WHEN t.priceList184 IS NULL THEN t."priceList050EndDate"
+                            WHEN t.clearance_price_050 <= t.priceList184 THEN t."priceList050EndDate"
+                            ELSE t."priceList184EndDate"
+                        END
+                    WHEN t.au_primary_price IS NOT NULL THEN t."auPrimaryEndDate"
+                    WHEN t.au_fallback_price_036 IS NOT NULL THEN t."auFallback036EndDate"
+                END
+            WHEN t."country" = 'NZ' THEN
+                CASE
+                    WHEN LEAST(t.priceList499, t.priceList498) IS NOT NULL THEN
+                        CASE
+                            WHEN t.priceList499 IS NULL THEN t."priceList498EndDate"
+                            WHEN t.priceList498 IS NULL THEN t."priceList499EndDate"
+                            WHEN t.priceList499 <= t.priceList498 THEN t."priceList499EndDate"
+                            ELSE t."priceList498EndDate"
+                        END
+                    WHEN t.nz_primary_price IS NOT NULL THEN t."nzPrimaryEndDate"
+                    WHEN t.nz_fallback_price_492 IS NOT NULL THEN t."nzFallback492EndDate"
+                END
+        END AS "currentPricelistEndDate"
     FROM (
         SELECT
             "sku","country","company",
             MAX(CASE WHEN "priceList" = '050' AND group_rn = 1 THEN "priceListPrice" END) AS clearance_price_050,
+            MAX(CASE WHEN "priceList" = '050' AND group_rn = 1 THEN "endDate" END) AS "priceList050EndDate",
             MAX(CASE WHEN "priceList" = '184' AND group_rn = 1 THEN "priceListPrice" END) AS priceList184,
+            MAX(CASE WHEN "priceList" = '184' AND group_rn = 1 THEN "endDate" END) AS "priceList184EndDate",
             MAX(CASE WHEN "priceList" = '499' AND group_rn = 1 THEN "priceListPrice" END) AS priceList499,
+            MAX(CASE WHEN "priceList" = '499' AND group_rn = 1 THEN "endDate" END) AS "priceList499EndDate",
             MAX(CASE WHEN "priceList" = '498' AND group_rn = 1 THEN "priceListPrice" END) AS priceList498,
+            MAX(CASE WHEN "priceList" = '498' AND group_rn = 1 THEN "endDate" END) AS "priceList498EndDate",
             MAX(CASE WHEN "priceList" IN ('390','419','824','343','446','241') AND group_rn = 1 THEN "priceListPrice" END) AS au_primary_price,
+            MAX(CASE WHEN "priceList" IN ('390','419','824','343','446','241') AND group_rn = 1 THEN "endDate" END) AS "auPrimaryEndDate",
             MAX(CASE WHEN "priceList" = '036' AND group_rn = 1 THEN "priceListPrice" END) AS au_fallback_price_036,
+            MAX(CASE WHEN "priceList" = '036' AND group_rn = 1 THEN "endDate" END) AS "auFallback036EndDate",
             MAX(CASE WHEN "priceList" IN ('371','274','211','044','134','021') AND group_rn = 1 THEN "priceListPrice" END) AS nz_primary_price,
-            MAX(CASE WHEN "priceList" = '492' AND group_rn = 1 THEN "priceListPrice" END) AS nz_fallback_price_492
+            MAX(CASE WHEN "priceList" IN ('371','274','211','044','134','021') AND group_rn = 1 THEN "endDate" END) AS "nzPrimaryEndDate",
+            MAX(CASE WHEN "priceList" = '492' AND group_rn = 1 THEN "priceListPrice" END) AS nz_fallback_price_492,
+            MAX(CASE WHEN "priceList" = '492' AND group_rn = 1 THEN "endDate" END) AS "nzFallback492EndDate"
         FROM "pricelistDetail"
         WHERE group_rn = 1
         GROUP BY "sku","country","company"
@@ -269,6 +307,7 @@ BEGIN
             rc."country",
             ppr."pricePoint6",
             ppr."pricePoint6IncludingGst",
+            ppr."endDate",
             ROW_NUMBER() OVER (
                 PARTITION BY ppr."sku", ppr."company"
                 ORDER BY ppr."startDate" DESC
@@ -284,7 +323,8 @@ BEGIN
         "company",
         "country",
         "pricePoint6",
-        "pricePoint6IncludingGst"
+        "pricePoint6IncludingGst",
+        "endDate"
     FROM "currentRrp"
     WHERE rn = 1;
 
@@ -411,7 +451,8 @@ END clearance,
           fpp.future_nz_fallback_492_startdate,
 
           future_ppr."pricePoint6IncludingGst" AS "futurePricePoint6IncludingGst",
-          future_ppr."startDate" AS "futurePprStartDate"
+          future_ppr."startDate" AS "futurePprStartDate",
+          COALESCE(pp."currentPricelistEndDate", ppr."endDate") AS "currentPricingEndDate"
 
       FROM "tEventOfferDetail" eod
       INNER JOIN "tEventOffer" eoh ON eod."offerId" = eoh."offerId" AND eod."offerNo" = eoh."offerNumber"
@@ -519,6 +560,7 @@ END clearance,
       SELECT
           d.*,
           CASE
+              WHEN d."currentPricingEndDate" > CURRENT_DATE + INTERVAL '5 years' THEN NULL
               WHEN d.future_pricelist_rrp IS NOT NULL
                    AND (d."futurePprStartDate" IS NULL OR d.future_pricelist_start_date <= d."futurePprStartDate")
               THEN d.future_pricelist_rrp
@@ -527,6 +569,7 @@ END clearance,
               ELSE d.future_pricelist_rrp
           END AS future_rrp_price,
           CASE
+              WHEN d."currentPricingEndDate" > CURRENT_DATE + INTERVAL '5 years' THEN NULL
               WHEN d.future_pricelist_rrp IS NOT NULL
                    AND (d."futurePprStartDate" IS NULL OR d.future_pricelist_start_date <= d."futurePprStartDate")
               THEN d.future_pricelist_start_date
@@ -719,7 +762,8 @@ END clearance,
           fpp.future_nz_fallback_492_startdate,
 
           future_ppr."pricePoint6IncludingGst" AS "futurePricePoint6IncludingGst",
-          future_ppr."startDate" AS "futurePprStartDate"
+          future_ppr."startDate" AS "futurePprStartDate",
+          COALESCE(pp."currentPricelistEndDate", ppr."endDate") AS "currentPricingEndDate"
 
       FROM "tEventOfferDetail" eod
       INNER JOIN "tEventOffer" eoh
@@ -847,6 +891,7 @@ END clearance,
       SELECT
           d.*,
           CASE
+              WHEN d."currentPricingEndDate" > CURRENT_DATE + INTERVAL '5 years' THEN NULL
               WHEN d.future_pricelist_rrp IS NOT NULL
                    AND (d."futurePprStartDate" IS NULL OR d.future_pricelist_start_date <= d."futurePprStartDate")
               THEN d.future_pricelist_rrp
@@ -855,6 +900,7 @@ END clearance,
               ELSE d.future_pricelist_rrp
           END AS future_rrp_price,
           CASE
+              WHEN d."currentPricingEndDate" > CURRENT_DATE + INTERVAL '5 years' THEN NULL
               WHEN d.future_pricelist_rrp IS NOT NULL
                    AND (d."futurePprStartDate" IS NULL OR d.future_pricelist_start_date <= d."futurePprStartDate")
               THEN d.future_pricelist_start_date
